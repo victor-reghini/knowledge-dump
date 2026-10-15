@@ -1,0 +1,9 @@
+.agents/
+.cursor/
+.github/
+runs/
+.clinerules
+.cursorrules
+.windsurfrules
+AGENTS.md
+CLAUDE.md
