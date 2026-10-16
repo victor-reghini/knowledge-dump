@@ -65,8 +65,8 @@ gantt
     Diretórios em Grade e Lista na Main View (Ativ 1.1d)       :done, a1d, 2026-10-25, 2026-10-25
     Design System Temas Claro/Escuro & Paleta (Ativ 1.1e)      :done, a1e, 2026-10-25, 2026-10-25
     Motor de Busca Global Full-Text FTS5 (Ativ 2.2 Antecipada) :done, b2, 2026-10-25, 2026-10-26
-    Editor Tiptap com Wikilinks & Marcadores (Ativ 1.3)        :active, a3, 2026-10-26, 7d
-    Árvore de Pastas e Visualizador PDF (Ativ 1.4)             :a4, after a3, 8d
+    Editor Tiptap com Wikilinks & Marcadores (Ativ 1.3)        :done, a3, 2026-10-26, 2026-10-27
+    Árvore de Pastas e Visualizador PDF (Ativ 1.4)             :active, a4, 2026-10-27, 8d
     Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :a5, after a4, 5d
 
     section Fase 2: Experiência Mac & Visualizadores
@@ -154,18 +154,23 @@ gantt
   - `Dockerfile` multi-stage baseado em `node:22-alpine` compilando frontend Vite e backend Fastify.
   - `docker-compose.yml` com volume `./data:/app/data`, `NODE_ENV=production` e porta 3000 exposta.
 
-#### Atividade 1.3: Editor Tiptap com Wikilinks, Marcadores e Âncoras [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳** (Próxima atividade)
-- **Branch Prevista:** `feature/1.3-editor-tiptap-katex`
+#### Atividade 1.3: Editor Tiptap com Wikilinks, Marcadores e Âncoras [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/1.3-editor-tiptap-katex`
 - **Responsável:** `agent-development`
 - **Descrição:** Implementar editor rico baseado no Tiptap com extensões para Wikilinks `[[Nome da Nota]]`, âncoras `#`, fórmulas KaTeX e marcadores contextuais.
-- **Comando para o Agente:**
-```bash
-Implemente o componente de editor Tiptap com suporte a Markdown, fórmulas LaTeX/KaTeX, extensão customizada para Wikilinks [[Nota]], âncoras [[Nota#secao]] e marcadores/bookmarks com visualização de destaques e comentários.
-```
+- **Entregas Realizadas:**
+  - Integração do editor rico Tiptap (`@tiptap/react`, `@tiptap/starter-kit`) com toolbar de formatação (Títulos H1/H2/H3, Negrito, Itálico, Código, Listas, Citações).
+  - Renderização matemática de alta precisão com KaTeX para expressões inline `$formula$` e blocos destacados `$$formula$$`.
+  - Construtor interativo de fórmulas KaTeX com live preview e presets matemáticos (Sigmoide, Relatividade, Soma Gaussiana, Integral).
+  - Construtor de Wikilinks com autocompletar de notas existentes e suporte a âncoras contextuais.
+  - Preview flutuante ao passar o mouse sobre Wikilinks ([RF-11](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L74)) exibindo metadados, categoria, tags, contagem de backlinks e status.
+  - Estilização diferenciada e criação sob demanda com 1 clique para links órfãos ([RF-09](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L72)).
+  - Suporte a âncoras de cabeçalho `{#secao}` com scroll suave e ícones interativos de âncora ⚓ ([RF-08](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L71)).
+  - Gestão de marcadores/marca-páginas contextuais com notas ([RF-05](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L65)).
 
 #### Atividade 1.4: Navegação em Pastas e Visualizador PDF com Deep-Link [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
+- **Status:** **PENDENTE ⏳** (Próxima atividade)
 - **Branch Prevista:** `feature/1.4-visualizador-pdf-deeplink`
 - **Responsável:** `agent-development`
 - **Descrição:** Construir painel lateral de navegação em árvore e integrar PDF.js em modo Split-View com extração de citações vinculadas a páginas e parágrafos.

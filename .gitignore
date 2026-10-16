@@ -11,6 +11,7 @@ CLAUDE.md
 # Node & Build outputs
 node_modules/
 .npm-cache/
+.vite/
 dist/
 dist-ssr/
 *.local

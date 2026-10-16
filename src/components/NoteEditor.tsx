@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import katex from 'katex';
 import { Note, Category, Folder } from '../types';
+import { TiptapEditor } from './TiptapEditor';
+import { WikilinkPreviewPopover } from './WikilinkPreviewPopover';
+import { slugify } from '../utils/slugify';
 import {
   Eye,
   Edit3,
@@ -11,7 +15,11 @@ import {
   Check,
   Share2,
   Globe,
-  Star
+  Sigma,
+  Anchor as AnchorIcon,
+  Layers,
+  Plus,
+  X
 } from 'lucide-react';
 
 interface NoteEditorProps {
@@ -21,9 +29,16 @@ interface NoteEditorProps {
   allNotes: Note[];
   onSave: (id: string, updates: Partial<Note>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onNavigateToNoteTitle: (title: string) => void;
+  onNavigateToNoteTitle: (title: string, anchor?: string) => void;
   onAddBookmark: (noteId: string, title: string, comment?: string) => Promise<void>;
   onOpenShare: (note: Note) => void;
+}
+
+interface HoveredWikilink {
+  title: string;
+  anchor?: string;
+  targetNote?: Note;
+  position: { x: number; y: number };
 }
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
@@ -42,11 +57,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [categoryId, setCategoryId] = useState<string | null>(note.category_id);
   const [folderId, setFolderId] = useState<string | null>(note.folder_id);
   const [isSaved, setIsSaved] = useState(true);
-  const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
+  const [viewMode, setViewMode] = useState<'preview' | 'tiptap' | 'markdown'>('preview');
+
+  // Modal / prompt dialog states
   const [showBookmarkPrompt, setShowBookmarkPrompt] = useState(false);
   const [bookmarkTitle, setBookmarkTitle] = useState('');
   const [bookmarkComment, setBookmarkComment] = useState('');
+
+  const [showWikilinkPrompt, setShowWikilinkPrompt] = useState(false);
+  const [wikilinkTarget, setWikilinkTarget] = useState('');
+  const [wikilinkAnchor, setWikilinkAnchor] = useState('');
+
+  const [showMathPrompt, setShowMathPrompt] = useState(false);
+  const [mathFormula, setMathFormula] = useState('\\sigma(z) = \\frac{1}{1 + e^{-z}}');
+  const [isBlockMath, setIsBlockMath] = useState(true);
+
+  const [showAnchorPrompt, setShowAnchorPrompt] = useState(false);
+  const [anchorName, setAnchorName] = useState('');
+
+  const [hoveredLink, setHoveredLink] = useState<HoveredWikilink | null>(null);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hoverTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setTitle(note.title);
@@ -57,17 +89,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   }, [note]);
 
   useEffect(() => {
-    if (viewMode === 'edit' && textareaRef.current) {
+    if (viewMode === 'markdown' && textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.max(380, textareaRef.current.scrollHeight)}px`;
     }
   }, [content, viewMode]);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleContentChange = (newContent: string) => {
+    setContent(newContent);
     setIsSaved(false);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.max(380, e.target.scrollHeight)}px`;
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,56 +124,176 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     setShowBookmarkPrompt(false);
   };
 
-  // Inline renderer for Wikilinks [[Title]] and bold **text**
+  // Insertion handlers
+  const handleInsertWikilinkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wikilinkTarget.trim()) return;
+    const anchorPart = wikilinkAnchor.trim() ? `#${slugify(wikilinkAnchor.trim())}` : '';
+    const snippet = `[[${wikilinkTarget.trim()}${anchorPart}]]`;
+    handleContentChange(content + (content.endsWith('\n') ? '' : '\n\n') + snippet);
+    setWikilinkTarget('');
+    setWikilinkAnchor('');
+    setShowWikilinkPrompt(false);
+  };
+
+  const handleInsertMathSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mathFormula.trim()) return;
+    const snippet = isBlockMath
+      ? `\n\n$$\n${mathFormula.trim()}\n$$\n\n`
+      : ` $${mathFormula.trim()}$ `;
+    handleContentChange(content + snippet);
+    setShowMathPrompt(false);
+  };
+
+  const handleInsertAnchorSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!anchorName.trim()) return;
+    const snippet = `\n\n## ${anchorName.trim()} {#${slugify(anchorName.trim())}}\n\n`;
+    handleContentChange(content + snippet);
+    setAnchorName('');
+    setShowAnchorPrompt(false);
+  };
+
+  // Safe KaTeX renderer
+  const renderKaTeX = (math: string, displayMode: boolean) => {
+    try {
+      const html = katex.renderToString(math.trim(), {
+        throwOnError: false,
+        displayMode
+      });
+      return (
+        <span
+          className={displayMode ? 'katex-block-wrapper' : 'katex-inline'}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    } catch {
+      return <code className="katex-error">${math}$</code>;
+    }
+  };
+
+  // Render inline tokens: Math ($...$), Wikilinks ([[...]]), Bold (**...**), Code (`...`)
   const renderInlineContent = (text: string) => {
-    const wikiParts = text.split(/(\[\[[^\]]+\]\])/g);
+    // Clean any residual HTML inline tags
+    const normalized = text
+      .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<b>(.*?)<\/b>/gi, '**$1**')
+      .replace(/<em>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<i>(.*?)<\/i>/gi, '*$1*')
+      .replace(/<code>(.*?)<\/code>/gi, '`$1`');
 
-    return wikiParts.map((wikiPart, wIdx) => {
-      const match = wikiPart.match(/^\[\[([^\]#]+)(?:#([^\]]+))?\]\]$/);
-      if (match) {
-        const targetTitle = match[1].trim();
-        const targetAnchor = match[2]?.trim();
-        const exists = allNotes.some((n) => n.title.toLowerCase() === targetTitle.toLowerCase());
+    // 1. Math formulas ($...$)
+    const mathParts = normalized.split(/(\$[^$\n]+\$)/g);
 
-        return (
-          <span
-            key={`w-${wIdx}`}
-            className={`wikilink ${!exists ? 'orphan' : ''}`}
-            onClick={() => onNavigateToNoteTitle(targetTitle)}
-            title={
-              exists
-                ? `Wikilink para "${targetTitle}"${targetAnchor ? ` (Âncora: #${targetAnchor})` : ''}`
-                : `Nota "${targetTitle}" ainda não existe. Clique para criar (Link Órfão estilo Wikipédia)`
-            }
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onNavigateToNoteTitle(targetTitle);
-            }}
-          >
-            <LinkIcon size={12} style={{ marginRight: 4, display: 'inline' }} />
-            {targetTitle}
-            {targetAnchor && <small> #{targetAnchor}</small>}
-          </span>
-        );
+    return mathParts.map((mathPart, mIdx) => {
+      if (mathPart.startsWith('$') && mathPart.endsWith('$') && mathPart.length > 2) {
+        const mathExpr = mathPart.slice(1, -1);
+        return <React.Fragment key={`m-${mIdx}`}>{renderKaTeX(mathExpr, false)}</React.Fragment>;
       }
 
-      // Handle bold **text**
-      const boldParts = wikiPart.split(/(\*\*[^*]+\*\*)/g);
-      return boldParts.map((boldPart, bIdx) => {
-        if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
-          return <strong key={`b-${wIdx}-${bIdx}`}>{boldPart.slice(2, -2)}</strong>;
+      // 2. Wikilinks ([[...]])
+      const wikiParts = mathPart.split(/(\[\[[^\]]+\]\])/g);
+
+      return wikiParts.map((wikiPart, wIdx) => {
+        const match = wikiPart.match(/^\[\[([^\]#]+)(?:#([^\]]+))?\]\]$/);
+        if (match) {
+          const targetTitle = match[1].trim();
+          const targetAnchor = match[2]?.trim();
+          const targetNote = allNotes.find(
+            (n) => n.title.toLowerCase() === targetTitle.toLowerCase()
+          );
+          const exists = Boolean(targetNote);
+
+          return (
+            <span
+              key={`w-${mIdx}-${wIdx}`}
+              className={`wikilink ${!exists ? 'orphan' : ''}`}
+              onClick={() => onNavigateToNoteTitle(targetTitle, targetAnchor)}
+              onMouseEnter={(e) => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredLink({
+                  title: targetTitle,
+                  anchor: targetAnchor,
+                  targetNote,
+                  position: { x: rect.left, y: rect.bottom }
+                });
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = window.setTimeout(() => {
+                  setHoveredLink(null);
+                }, 300);
+              }}
+              title={
+                exists
+                  ? `Wikilink para "${targetTitle}"${targetAnchor ? ` (Âncora: #${targetAnchor})` : ''}`
+                  : `Nota "${targetTitle}" ainda não existe. Clique para criar com 1 clique (Link Órfão estilo Wikipédia)`
+              }
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onNavigateToNoteTitle(targetTitle, targetAnchor);
+              }}
+            >
+              <LinkIcon size={12} style={{ marginRight: 4, display: 'inline' }} />
+              {targetTitle}
+              {targetAnchor && <small> #{targetAnchor}</small>}
+            </span>
+          );
         }
-        return boldPart;
+
+        // 3. Bold (**...**)
+        const boldParts = wikiPart.split(/(\*\*[^*]+\*\*)/g);
+        return boldParts.map((boldPart, bIdx) => {
+          if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
+            return <strong key={`b-${mIdx}-${wIdx}-${bIdx}`}>{boldPart.slice(2, -2)}</strong>;
+          }
+
+          // 4. Inline code (`...`)
+          const codeParts = boldPart.split(/(`[^`]+`)/g);
+          return codeParts.map((codePart, cIdx) => {
+            if (codePart.startsWith('`') && codePart.endsWith('`')) {
+              return (
+                <code
+                  key={`c-${mIdx}-${wIdx}-${bIdx}-${cIdx}`}
+                  style={{
+                    backgroundColor: 'var(--bg-tertiary)',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    fontSize: '0.88em',
+                    fontFamily: 'var(--font-mono)'
+                  }}
+                >
+                  {codePart.slice(1, -1)}
+                </code>
+              );
+            }
+            return codePart;
+          });
+        });
       });
     });
   };
 
-  // Render hypertext Markdown with lists, headings, and clean block flow
+  // Render hypertext Markdown with headings, KaTeX math blocks, and lists
   const renderHypertextPreview = (text: string) => {
-    const rawLines = text.split('\n');
+    // Normalize any block HTML tags into standard line structures
+    const cleanText = text
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n')
+      .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n')
+      .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+      .replace(/<\/?ul[^>]*>/gi, '')
+      .replace(/<\/?ol[^>]*>/gi, '');
+
+    const rawLines = cleanText.split('\n');
     const elements: React.ReactNode[] = [];
     let listBuffer: React.ReactNode[] = [];
+    let inMathBlock = false;
+    let mathBlockBuffer: string[] = [];
 
     const flushList = (key: string) => {
       if (listBuffer.length > 0) {
@@ -156,8 +306,44 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       }
     };
 
-    rawLines.forEach((line, idx) => {
+    for (let idx = 0; idx < rawLines.length; idx++) {
+      const line = rawLines[idx];
       const trimmed = line.trim();
+
+      // Check math block start/end ($$)
+      if (trimmed === '$$') {
+        flushList(`flush-math-${idx}`);
+        if (!inMathBlock) {
+          inMathBlock = true;
+          mathBlockBuffer = [];
+        } else {
+          inMathBlock = false;
+          elements.push(
+            <div key={`mathblock-${idx}`} className="katex-block-wrapper">
+              {renderKaTeX(mathBlockBuffer.join('\n'), true)}
+            </div>
+          );
+          mathBlockBuffer = [];
+        }
+        continue;
+      }
+
+      if (inMathBlock) {
+        mathBlockBuffer.push(line);
+        continue;
+      }
+
+      // Single line block math $$ formula $$
+      if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length >= 4) {
+        flushList(`flush-singlemath-${idx}`);
+        const mathExpr = trimmed.slice(2, -2);
+        elements.push(
+          <div key={`mathblock-${idx}`} className="katex-block-wrapper">
+            {renderKaTeX(mathExpr, true)}
+          </div>
+        );
+        continue;
+      }
 
       // Unordered list item (- or *)
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
@@ -167,7 +353,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             {renderInlineContent(itemText)}
           </li>
         );
-        return;
+        continue;
       }
 
       // Non-list line flushes list
@@ -176,22 +362,67 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       if (trimmed === '') {
         elements.push(<div key={`empty-${idx}`} style={{ height: 12 }} />);
       } else if (trimmed.startsWith('# ')) {
+        let headingText = trimmed.slice(2);
+        const anchorMatch = headingText.match(/\s*\{#([^}]+)\}\s*$/);
+        const anchorId = anchorMatch ? anchorMatch[1] : slugify(headingText);
+        if (anchorMatch) headingText = headingText.replace(/\s*\{#([^}]+)\}\s*$/, '');
+
         elements.push(
-          <h1 key={`h1-${idx}`} style={{ fontSize: '1.9rem', margin: '22px 0 12px 0', fontWeight: 800 }}>
-            {renderInlineContent(trimmed.slice(2))}
-          </h1>
+          <div key={`h1-${idx}`} id={anchorId} className="heading-anchor-container">
+            <h1 style={{ fontSize: '1.9rem', margin: '22px 0 12px 0', fontWeight: 800 }}>
+              {renderInlineContent(headingText)}
+            </h1>
+            <a href={`#${anchorId}`} className="heading-anchor-link" title={`Âncora: #${anchorId}`}>
+              <AnchorIcon size={16} />
+            </a>
+          </div>
         );
       } else if (trimmed.startsWith('## ')) {
+        let headingText = trimmed.slice(3);
+        const anchorMatch = headingText.match(/\s*\{#([^}]+)\}\s*$/);
+        const anchorId = anchorMatch ? anchorMatch[1] : slugify(headingText);
+        if (anchorMatch) headingText = headingText.replace(/\s*\{#([^}]+)\}\s*$/, '');
+
         elements.push(
-          <h2 key={`h2-${idx}`} style={{ fontSize: '1.4rem', margin: '18px 0 10px 0', fontWeight: 700 }}>
-            {renderInlineContent(trimmed.slice(3))}
-          </h2>
+          <div key={`h2-${idx}`} id={anchorId} className="heading-anchor-container">
+            <h2 style={{ fontSize: '1.4rem', margin: '18px 0 10px 0', fontWeight: 700 }}>
+              {renderInlineContent(headingText)}
+            </h2>
+            <a href={`#${anchorId}`} className="heading-anchor-link" title={`Âncora: #${anchorId}`}>
+              <AnchorIcon size={15} />
+            </a>
+          </div>
         );
       } else if (trimmed.startsWith('### ')) {
+        let headingText = trimmed.slice(4);
+        const anchorMatch = headingText.match(/\s*\{#([^}]+)\}\s*$/);
+        const anchorId = anchorMatch ? anchorMatch[1] : slugify(headingText);
+        if (anchorMatch) headingText = headingText.replace(/\s*\{#([^}]+)\}\s*$/, '');
+
         elements.push(
-          <h3 key={`h3-${idx}`} style={{ fontSize: '1.15rem', margin: '14px 0 8px 0', fontWeight: 600 }}>
-            {renderInlineContent(trimmed.slice(4))}
-          </h3>
+          <div key={`h3-${idx}`} id={anchorId} className="heading-anchor-container">
+            <h3 style={{ fontSize: '1.15rem', margin: '14px 0 8px 0', fontWeight: 600 }}>
+              {renderInlineContent(headingText)}
+            </h3>
+            <a href={`#${anchorId}`} className="heading-anchor-link" title={`Âncora: #${anchorId}`}>
+              <AnchorIcon size={14} />
+            </a>
+          </div>
+        );
+      } else if (trimmed.startsWith('> ')) {
+        elements.push(
+          <blockquote
+            key={`quote-${idx}`}
+            style={{
+              borderLeft: '3px solid var(--primary-yellow-border)',
+              paddingLeft: 14,
+              margin: '14px 0',
+              color: 'var(--text-secondary)',
+              fontStyle: 'italic'
+            }}
+          >
+            {renderInlineContent(trimmed.slice(2))}
+          </blockquote>
         );
       } else {
         elements.push(
@@ -200,8 +431,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           </p>
         );
       }
-    });
+    }
 
+    // Flush any pending math block or list
+    if (inMathBlock && mathBlockBuffer.length > 0) {
+      elements.push(
+        <div key="mathblock-final" className="katex-block-wrapper">
+          {renderKaTeX(mathBlockBuffer.join('\n'), true)}
+        </div>
+      );
+    }
     flushList('final');
     return elements;
   };
@@ -300,27 +539,89 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         <button
           className={`toolbar-btn ${viewMode === 'preview' ? 'active' : ''}`}
           onClick={() => setViewMode('preview')}
+          title="Modo de leitura com fórmulas renderizadas e hiperlinks ativos"
         >
           <Eye size={15} />
-          <span>Leitura Hipertextual</span>
+          <span>Leitura & Fórmulas</span>
         </button>
+
         <button
-          className={`toolbar-btn ${viewMode === 'edit' ? 'active' : ''}`}
-          onClick={() => setViewMode('edit')}
+          className={`toolbar-btn ${viewMode === 'tiptap' ? 'active' : ''}`}
+          onClick={() => setViewMode('tiptap')}
+          title="Editor visual formatado (WYSIWYG Tiptap)"
+        >
+          <Layers size={15} />
+          <span>Editor Tiptap</span>
+        </button>
+
+        <button
+          className={`toolbar-btn ${viewMode === 'markdown' ? 'active' : ''}`}
+          onClick={() => setViewMode('markdown')}
+          title="Editor direto de texto Markdown"
         >
           <Edit3 size={15} />
-          <span>Editar Texto</span>
+          <span>Markdown Bruto</span>
+        </button>
+
+        <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+        {/* Action buttons */}
+        <button
+          className={`toolbar-btn ${showWikilinkPrompt ? 'active' : ''}`}
+          onClick={() => {
+            setShowWikilinkPrompt(!showWikilinkPrompt);
+            setShowMathPrompt(false);
+            setShowAnchorPrompt(false);
+            setShowBookmarkPrompt(false);
+          }}
+          title="Inserir Wikilink [[Nome da Nota]]"
+        >
+          <LinkIcon size={14} />
+          <span>+ Wikilink</span>
+        </button>
+
+        <button
+          className={`toolbar-btn ${showMathPrompt ? 'active' : ''}`}
+          onClick={() => {
+            setShowMathPrompt(!showMathPrompt);
+            setShowWikilinkPrompt(false);
+            setShowAnchorPrompt(false);
+            setShowBookmarkPrompt(false);
+          }}
+          title="Inserir fórmula matemática KaTeX ($$E=mc^2$$)"
+        >
+          <Sigma size={14} />
+          <span>+ KaTeX</span>
+        </button>
+
+        <button
+          className={`toolbar-btn ${showAnchorPrompt ? 'active' : ''}`}
+          onClick={() => {
+            setShowAnchorPrompt(!showAnchorPrompt);
+            setShowWikilinkPrompt(false);
+            setShowMathPrompt(false);
+            setShowBookmarkPrompt(false);
+          }}
+          title="Inserir âncora contextual {#secao}"
+        >
+          <AnchorIcon size={14} />
+          <span>+ Âncora</span>
         </button>
 
         <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
 
         <button
-          className="toolbar-btn"
-          onClick={() => setShowBookmarkPrompt(!showBookmarkPrompt)}
+          className={`toolbar-btn ${showBookmarkPrompt ? 'active' : ''}`}
+          onClick={() => {
+            setShowBookmarkPrompt(!showBookmarkPrompt);
+            setShowWikilinkPrompt(false);
+            setShowMathPrompt(false);
+            setShowAnchorPrompt(false);
+          }}
           title="Adicionar Marcador / Marca-Página nesta nota"
         >
           <BookmarkIcon size={15} style={{ color: '#eab308' }} />
-          <span>Criar Marcador</span>
+          <span>Marcador</span>
         </button>
 
         <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
@@ -342,6 +643,240 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         ) : null}
       </div>
 
+      {/* Inline Quick Insert: Wikilink Prompt (RF-07, RF-08, RF-09) */}
+      {showWikilinkPrompt && (
+        <form
+          onSubmit={handleInsertWikilinkSubmit}
+          style={{
+            padding: 14,
+            marginBottom: 20,
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--wikilink-color)' }}>
+              <LinkIcon size={14} />
+              <span>Inserir Hiperlink Bidirecional ([[Wikilink]])</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowWikilinkPrompt(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              placeholder="Nome da Nota (ex: 'Perceptron' ou novo conceito)..."
+              value={wikilinkTarget}
+              onChange={(e) => setWikilinkTarget(e.target.value)}
+              list="existing-notes-list"
+              style={{
+                padding: '6px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-tertiary)',
+                fontSize: '0.88rem'
+              }}
+              required
+            />
+            <datalist id="existing-notes-list">
+              {allNotes.map((n) => (
+                <option key={n.id} value={n.title} />
+              ))}
+            </datalist>
+
+            <input
+              type="text"
+              placeholder="Âncora Opcional (ex: 'Fundamentos')..."
+              value={wikilinkAnchor}
+              onChange={(e) => setWikilinkAnchor(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-tertiary)',
+                fontSize: '0.88rem'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Se a nota não existir, será gerado um link órfão vermelho estilo Wikipédia com criação sob demanda.
+            </span>
+            <button
+              type="submit"
+              className="sidebar-action-btn"
+              style={{ margin: 0, padding: '6px 14px', fontSize: '0.85rem' }}
+            >
+              Inserir Wikilink
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Inline Quick Insert: KaTeX Math Formula Prompt (RF-06) */}
+      {showMathPrompt && (
+        <form
+          onSubmit={handleInsertMathSubmit}
+          style={{
+            padding: 14,
+            marginBottom: 20,
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent-primary)' }}>
+              <Sigma size={15} />
+              <span>Inserir Fórmula Matemática LaTeX / KaTeX</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMathPrompt(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Expressão LaTeX (ex: \\sigma(z) = \\frac{1}{1 + e^{-z}})..."
+            value={mathFormula}
+            onChange={(e) => setMathFormula(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
+              marginBottom: 8,
+              fontSize: '0.9rem',
+              fontFamily: 'var(--font-mono)'
+            }}
+            required
+          />
+
+          {/* Quick template buttons */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Exemplos:</span>
+            {[
+              { label: 'Sigmoide', expr: '\\sigma(z) = \\frac{1}{1 + e^{-z}}' },
+              { label: 'Relatividade', expr: 'E = mc^2' },
+              { label: 'Soma Gaussiana', expr: '\\sum_{i=1}^n i = \\frac{n(n+1)}{2}' },
+              { label: 'Integral', expr: '\\int_{-\\infty}^\\infty e^{-x^2} dx = \\sqrt{\\pi}' }
+            ].map((tmpl) => (
+              <button
+                key={tmpl.label}
+                type="button"
+                onClick={() => setMathFormula(tmpl.expr)}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                {tmpl.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Live Preview */}
+          <div style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 6, textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>Prévia da renderização KaTeX:</div>
+            {renderKaTeX(mathFormula || 'E = mc^2', isBlockMath)}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isBlockMath}
+                onChange={(e) => setIsBlockMath(e.target.checked)}
+              />
+              <span>Fórmula em bloco destacado ($$...$$)</span>
+            </label>
+            <button
+              type="submit"
+              className="sidebar-action-btn"
+              style={{ margin: 0, padding: '6px 14px', fontSize: '0.85rem' }}
+            >
+              Inserir Fórmula
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Inline Quick Insert: Anchor Prompt (RF-08) */}
+      {showAnchorPrompt && (
+        <form
+          onSubmit={handleInsertAnchorSubmit}
+          style={{
+            padding: 14,
+            marginBottom: 20,
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent-blue)' }}>
+              <AnchorIcon size={14} />
+              <span>Inserir Âncora de Seção (RF-08)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAnchorPrompt(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Nome da Seção / Âncora (ex: 'Definição Formal')..."
+            value={anchorName}
+            onChange={(e) => setAnchorName(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
+              marginBottom: 8,
+              fontSize: '0.9rem'
+            }}
+            required
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Gera um cabeçalho com ID rastreável para links bidirecionais [[Nota#{slugify(anchorName || 'secao')}]].
+            </span>
+            <button
+              type="submit"
+              className="sidebar-action-btn"
+              style={{ margin: 0, padding: '6px 14px', fontSize: '0.85rem' }}
+            >
+              Criar Âncora
+            </button>
+          </div>
+        </form>
+      )}
+
       {/* Bookmark Form */}
       {showBookmarkPrompt && (
         <form
@@ -356,7 +891,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         >
           <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
             <BookmarkIcon size={14} className="bookmark-gold" />
-            <span>Novo Marca-Página / Marcador Contextual</span>
+            <span>Novo Marca-Página / Marcador Contextual (RF-05)</span>
           </div>
           <input
             type="text"
@@ -427,17 +962,45 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         </div>
       )}
 
-      {/* Content Editor / Preview */}
-      {viewMode === 'edit' ? (
+      {/* Editor Body */}
+      {viewMode === 'tiptap' ? (
+        <TiptapEditor
+          content={content}
+          onChange={handleContentChange}
+          onInsertWikilink={() => setShowWikilinkPrompt(true)}
+          onInsertMath={() => setShowMathPrompt(true)}
+          onInsertAnchor={() => setShowAnchorPrompt(true)}
+        />
+      ) : viewMode === 'markdown' ? (
         <textarea
           ref={textareaRef}
           className="note-textarea"
           value={content}
-          onChange={handleContentChange}
-          placeholder="Escreva sua anotação... Use [[Nome da Nota]] para conectar hiperlinks estilo Wikipédia ou [[Nota#Âncora]]."
+          onChange={(e) => {
+            handleContentChange(e.target.value);
+            e.target.style.height = 'auto';
+            e.target.style.height = `${Math.max(380, e.target.scrollHeight)}px`;
+          }}
+          placeholder="Escreva sua anotação... Use [[Nome da Nota]] para conectar hiperlinks estilo Wikipédia ou [[Nota#Âncora]]. Use $formula$ para KaTeX."
         />
       ) : (
         <div className="note-preview-container">{renderHypertextPreview(content)}</div>
+      )}
+
+      {/* Floating Hover Popover for Wikilinks (RF-11) */}
+      {hoveredLink && (
+        <WikilinkPreviewPopover
+          title={hoveredLink.title}
+          anchor={hoveredLink.anchor}
+          targetNote={hoveredLink.targetNote}
+          categories={categories}
+          position={hoveredLink.position}
+          onClose={() => setHoveredLink(null)}
+          onNavigate={() => {
+            onNavigateToNoteTitle(hoveredLink.title, hoveredLink.anchor);
+            setHoveredLink(null);
+          }}
+        />
       )}
 
       {/* Backlinks (RF-10) */}
