@@ -4,7 +4,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { db, initDatabase, hashPassword } from './db.js';
+import { db, initDatabase, hashPassword, hasFts5 } from './db.js';
 
 initDatabase();
 
@@ -342,7 +342,11 @@ server.post('/api/notes', async (request) => {
   `).run(id, userId, body.title, content, body.category_id || null, body.folder_id || null);
 
   // FTS5
-  db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(id, body.title, content);
+  if (hasFts5) {
+    try {
+      db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(id, body.title, content);
+    } catch {}
+  }
 
   // Tags
   if (body.tags && Array.isArray(body.tags)) {
@@ -390,8 +394,12 @@ server.put('/api/notes/:id', async (request, reply) => {
   `).run(title, content, category_id, folder_id, is_favorite, id);
 
   // Update FTS5
-  db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
-  db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(id, title, content);
+  if (hasFts5) {
+    try {
+      db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
+      db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(id, title, content);
+    } catch {}
+  }
 
   // Tags
   if (body.tags && Array.isArray(body.tags)) {
@@ -422,7 +430,11 @@ server.put('/api/notes/:id', async (request, reply) => {
 server.delete('/api/notes/:id', async (request) => {
   const { id } = request.params as { id: string };
   db.prepare('DELETE FROM notes WHERE id = ?').run(id);
-  db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
+  if (hasFts5) {
+    try {
+      db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
+    } catch {}
+  }
   return { success: true, id };
 });
 
@@ -472,26 +484,28 @@ server.get('/api/search', async (request) => {
 
   const ftsQuery = `"${cleanQuery}"*`;
 
-  try {
-    const results = db.prepare(`
-      SELECT n.id, n.title, snippet(notes_fts, 2, '<mark>', '</mark>', '...', 20) as snippet,
-             c.name as category_name
-      FROM notes_fts
-      JOIN notes n ON notes_fts.note_id = n.id
-      LEFT JOIN categories c ON n.category_id = c.id
-      WHERE notes_fts MATCH ?
-      LIMIT 20
-    `).all(ftsQuery);
-    return results;
-  } catch {
-    return db.prepare(`
-      SELECT n.id, n.title, substr(n.content, 1, 120) as snippet, c.name as category_name
-      FROM notes n
-      LEFT JOIN categories c ON n.category_id = c.id
-      WHERE n.title LIKE ? OR n.content LIKE ?
-      LIMIT 20
-    `).all(`%${cleanQuery}%`, `%${cleanQuery}%`);
+  if (hasFts5) {
+    try {
+      const results = db.prepare(`
+        SELECT n.id, n.title, snippet(notes_fts, 2, '<mark>', '</mark>', '...', 20) as snippet,
+               c.name as category_name
+        FROM notes_fts
+        JOIN notes n ON notes_fts.note_id = n.id
+        LEFT JOIN categories c ON n.category_id = c.id
+        WHERE notes_fts MATCH ?
+        LIMIT 20
+      `).all(ftsQuery);
+      return results;
+    } catch {}
   }
+
+  return db.prepare(`
+    SELECT n.id, n.title, substr(n.content, 1, 120) as snippet, c.name as category_name
+    FROM notes n
+    LEFT JOIN categories c ON n.category_id = c.id
+    WHERE n.title LIKE ? OR n.content LIKE ?
+    LIMIT 20
+  `).all(`%${cleanQuery}%`, `%${cleanQuery}%`);
 });
 
 // Fallback for SPA routing in production
