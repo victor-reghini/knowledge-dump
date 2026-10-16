@@ -728,9 +728,9 @@ server.get('/api/references/:id/content', async (request, reply) => {
       const docxData = parseDocxFile(fullPath);
       return {
         id: ref.id,
-        title: ref.title,
         file_type: 'docx',
-        ...docxData
+        ...docxData,
+        title: docxData.title || ref.title
       };
     } catch (err: any) {
       return reply.status(500).send({ error: `Erro ao analisar DOCX: ${err.message}` });
@@ -742,9 +742,9 @@ server.get('/api/references/:id/content', async (request, reply) => {
       const pptxData = parsePptxFile(fullPath);
       return {
         id: ref.id,
-        title: ref.title,
         file_type: 'pptx',
-        ...pptxData
+        ...pptxData,
+        title: pptxData.title || ref.title
       };
     } catch (err: any) {
       return reply.status(500).send({ error: `Erro ao analisar PowerPoint: ${err.message}` });

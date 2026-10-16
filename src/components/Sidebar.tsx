@@ -14,7 +14,8 @@ import {
   Trash2,
   Film,
   Music,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Presentation
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -153,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               className="folder-add-root-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Importar Arquivo (PDF, DOCX, TeX, Mídia)"
+              title="Importar Arquivo (PDF, Word, Slides, Texto, Mídia)"
             >
               <Upload size={13} />
               <span>+ Arquivo</span>
@@ -161,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <input
               type="file"
               ref={fileInputRef}
-              accept=".pdf,.docx,.doc,.tex,.latex,.html,.htm,.md,.mp4,.webm,.mov,.mp3,.wav,.ogg,.png,.jpg,.jpeg,.svg,.webp"
+              accept=".pdf,.docx,.doc,.pptx,.ppt,.pps,.ppsx,.txt,.text,.md,.markdown,.tex,.latex,.html,.htm,.mp4,.webm,.mov,.mp3,.wav,.ogg,.png,.jpg,.jpeg,.svg,.webp"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -175,6 +176,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const renderRefIcon = () => {
               if (type === 'pdf' || path.endsWith('.pdf')) {
                 return <FileText size={14} className="nav-item-icon" style={{ color: '#ef4444' }} />;
+              }
+              if (type === 'pptx' || type === 'ppt' || /\.(pptx|ppt|pps|ppsx)$/i.test(path)) {
+                return <Presentation size={14} className="nav-item-icon" style={{ color: '#ea580c' }} />;
+              }
+              if (type === 'md' || type === 'markdown' || /\.(md|markdown)$/i.test(path)) {
+                return <FileText size={14} className="nav-item-icon" style={{ color: '#10b981' }} />;
+              }
+              if (type === 'txt' || type === 'text' || /\.(txt|text)$/i.test(path)) {
+                return <FileText size={14} className="nav-item-icon" style={{ color: '#6366f1' }} />;
               }
               if (type === 'docx' || type === 'doc' || path.endsWith('.docx') || path.endsWith('.doc')) {
                 return <FileText size={14} className="nav-item-icon" style={{ color: '#3b82f6' }} />;

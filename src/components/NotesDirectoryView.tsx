@@ -13,6 +13,7 @@ import {
   Film,
   Music,
   Image as ImageIcon,
+  Presentation,
   Calendar,
   Share2,
   FolderInput,
@@ -102,6 +103,15 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
     const path = filePath?.toLowerCase() || '';
     if (type === 'pdf' || path.endsWith('.pdf')) {
       return <FileText size={18} style={{ color: '#ef4444' }} />;
+    }
+    if (type === 'pptx' || type === 'ppt' || /\.(pptx|ppt|pps|ppsx)$/i.test(path)) {
+      return <Presentation size={18} style={{ color: '#ea580c' }} />;
+    }
+    if (type === 'md' || type === 'markdown' || /\.(md|markdown)$/i.test(path)) {
+      return <FileText size={18} style={{ color: '#10b981' }} />;
+    }
+    if (type === 'txt' || type === 'text' || /\.(txt|text)$/i.test(path)) {
+      return <FileText size={18} style={{ color: '#6366f1' }} />;
     }
     if (type === 'docx' || type === 'doc' || path.endsWith('.docx') || path.endsWith('.doc')) {
       return <FileText size={18} style={{ color: '#3b82f6' }} />;
