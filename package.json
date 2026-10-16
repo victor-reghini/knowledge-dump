@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch server/index.ts",
+    "dev:server": "NODE_OPTIONS=\"--experimental-sqlite\" tsx watch server/index.ts",
     "dev:all": "node scripts/dev.js",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
