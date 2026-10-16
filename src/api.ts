@@ -78,7 +78,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/categories`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter categorias:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async createCategory(data: { name: string; color?: string; icon?: string; parent_id?: string | null } | string, color?: string): Promise<Category> {
@@ -112,7 +117,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/folders`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter pastas:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async createFolder(name: string, parent_id?: string | null): Promise<Folder> {
@@ -155,7 +165,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/notes?${query.toString()}`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter notas:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async getNote(id: string): Promise<Note> {
@@ -196,7 +211,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/bookmarks`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter favoritos:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async createBookmark(data: { note_id?: string; title: string; comment?: string; color?: string; page_or_pos?: string }): Promise<Bookmark> {
@@ -221,7 +241,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/references`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter referências:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async getReference(id: string): Promise<ReferenceFile> {
@@ -264,7 +289,12 @@ export const api = {
     const res = await fetch(`${BASE_URL}/citations${query}`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha ao obter citações:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async createCitation(data: { note_id: string; reference_id: string; quote_text: string; page_number?: number; anchor_data?: string }): Promise<Citation> {
@@ -290,6 +320,11 @@ export const api = {
     const res = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(query)}`, {
       headers: getAuthHeaders()
     });
-    return res.json();
+    if (!res.ok) {
+      console.warn('Falha na busca:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   }
 };

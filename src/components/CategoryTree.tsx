@@ -21,15 +21,17 @@ interface CategoryTreeProps {
 }
 
 export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
+  const safeCats = Array.isArray(categories) ? categories : [];
   const map = new Map<string, CategoryTreeNode>();
   const roots: CategoryTreeNode[] = [];
 
-  categories.forEach((c) => {
+  safeCats.forEach((c) => {
     map.set(c.id, { ...c, children: [], level: 0 });
   });
 
-  categories.forEach((c) => {
-    const node = map.get(c.id)!;
+  safeCats.forEach((c) => {
+    const node = map.get(c.id);
+    if (!node) return;
     if (c.parent_id && map.has(c.parent_id)) {
       const parent = map.get(c.parent_id)!;
       node.level = parent.level + 1;
@@ -43,18 +45,20 @@ export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
 }
 
 export function countCategoryNotes(categoryId: string, categories: Category[], notes: Note[]): number {
+  const safeCats = Array.isArray(categories) ? categories : [];
+  const safeNotes = Array.isArray(notes) ? notes : [];
   const subCategoryIds = new Set<string>([categoryId]);
   let added = true;
   while (added) {
     added = false;
-    for (const c of categories) {
+    for (const c of safeCats) {
       if (c.parent_id && subCategoryIds.has(c.parent_id) && !subCategoryIds.has(c.id)) {
         subCategoryIds.add(c.id);
         added = true;
       }
     }
   }
-  return notes.filter((n) => n.category_id && subCategoryIds.has(n.category_id)).length;
+  return safeNotes.filter((n) => n.category_id && subCategoryIds.has(n.category_id)).length;
 }
 
 const PALETTE = [

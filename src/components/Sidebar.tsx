@@ -67,6 +67,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onUploadPdf,
   onDeleteReference
 }) => {
+  const safeReferences = Array.isArray(references) ? references : [];
+  const safeBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeFolders = Array.isArray(folders) ? folders : [];
+  const safeAllNotes = Array.isArray(allNotes) ? allNotes : [];
+  const safeNotes = Array.isArray(notes) ? notes : [];
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,15 +110,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <FileText className="nav-item-icon" />
               <span>Todas as Notas</span>
             </span>
-            <span className="nav-badge">{allNotes.length}</span>
+            <span className="nav-badge">{safeAllNotes.length}</span>
           </button>
         </div>
 
         {/* Hierarchical Folders Tree (RF-04: Criação, Edição, Mover, Remoção) */}
         <div>
           <FolderTree
-            folders={folders}
-            notes={allNotes}
+            folders={safeFolders}
+            notes={safeAllNotes}
             selectedFolderId={selectedFolderId}
             onSelectFolder={onSelectFolder}
             onCreateFolder={onCreateFolder}
@@ -123,8 +130,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Hierarchical Categories Tree (Criação, Edição, Cores, Mover, Remoção) */}
         <div>
           <CategoryTree
-            categories={categories}
-            notes={allNotes}
+            categories={safeCategories}
+            notes={safeAllNotes}
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={onSelectCategory}
             onCreateCategory={onCreateCategory}
@@ -136,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* References & PDFs (RF-14, RF-19) */}
         <div>
           <div className="nav-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Referências & Papers ({references.length})</span>
+            <span>Referências & Papers ({safeReferences.length})</span>
             <button
               type="button"
               className="folder-add-root-btn"
@@ -155,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           </div>
 
-          {references.map((ref) => {
+          {safeReferences.map((ref) => {
             const isActive = activeReferenceId === ref.id;
             return (
               <div key={ref.id} className="ref-nav-wrapper">
@@ -190,12 +197,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bookmarks */}
-        {bookmarks.length > 0 && (
+        {safeBookmarks.length > 0 && (
           <div>
             <div className="nav-section-title">
-              <span>Marcadores ({bookmarks.length})</span>
+              <span>Marcadores ({safeBookmarks.length})</span>
             </div>
-            {bookmarks.map((bm) => (
+            {safeBookmarks.map((bm) => (
               <button
                 key={bm.id}
                 className="nav-item"

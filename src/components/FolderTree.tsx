@@ -23,17 +23,19 @@ interface FolderTreeProps {
 }
 
 export function buildFolderTree(folders: Folder[]): FolderTreeNode[] {
+  const safeFolders = Array.isArray(folders) ? folders : [];
   const map = new Map<string, FolderTreeNode>();
   const roots: FolderTreeNode[] = [];
 
   // Initialize nodes
-  folders.forEach((f) => {
+  safeFolders.forEach((f) => {
     map.set(f.id, { ...f, children: [], level: 0 });
   });
 
   // Assign children
-  folders.forEach((f) => {
-    const node = map.get(f.id)!;
+  safeFolders.forEach((f) => {
+    const node = map.get(f.id);
+    if (!node) return;
     if (f.parent_id && map.has(f.parent_id)) {
       const parent = map.get(f.parent_id)!;
       node.level = parent.level + 1;
@@ -48,18 +50,20 @@ export function buildFolderTree(folders: Folder[]): FolderTreeNode[] {
 
 // Count notes in folder and all descendants
 export function countFolderNotes(folderId: string, folders: Folder[], notes: Note[]): number {
+  const safeFolders = Array.isArray(folders) ? folders : [];
+  const safeNotes = Array.isArray(notes) ? notes : [];
   const subFolderIds = new Set<string>([folderId]);
   let added = true;
   while (added) {
     added = false;
-    for (const f of folders) {
+    for (const f of safeFolders) {
       if (f.parent_id && subFolderIds.has(f.parent_id) && !subFolderIds.has(f.id)) {
         subFolderIds.add(f.id);
         added = true;
       }
     }
   }
-  return notes.filter((n) => n.folder_id && subFolderIds.has(n.folder_id)).length;
+  return safeNotes.filter((n) => n.folder_id && subFolderIds.has(n.folder_id)).length;
 }
 
 export const FolderTree: React.FC<FolderTreeProps> = ({

@@ -92,13 +92,14 @@ export const App: React.FC = () => {
         api.getNotes(),
         api.getReferences()
       ]);
-      setCategories(cats);
-      setFolders(flds);
-      setBookmarks(bms);
-      setNotes(nts);
-      setReferences(refs);
-      if (refs.length > 0 && !activeReference) {
-        setActiveReference(refs[0]);
+      setCategories(Array.isArray(cats) ? cats : []);
+      setFolders(Array.isArray(flds) ? flds : []);
+      setBookmarks(Array.isArray(bms) ? bms : []);
+      setNotes(Array.isArray(nts) ? nts : []);
+      const validRefs = Array.isArray(refs) ? refs : [];
+      setReferences(validRefs);
+      if (validRefs.length > 0 && !activeReference) {
+        setActiveReference(validRefs[0]);
       }
     } catch (err) {
       console.error('Falha ao carregar dados:', err);
