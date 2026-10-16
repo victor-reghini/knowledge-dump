@@ -26,6 +26,11 @@ export interface ReferenceFile {
   authors?: string | null;
   year?: number | null;
   doi?: string | null;
+  folder_id?: string | null;
+  category_id?: string | null;
+  folder_name?: string | null;
+  category_name?: string | null;
+  category_color?: string | null;
   created_at?: string;
 }
 

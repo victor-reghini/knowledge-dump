@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderTreeNode, Note } from '../types';
+import { Folder, FolderTreeNode, Note, ReferenceFile } from '../types';
 import {
   Folder as FolderIcon,
   FolderOpen,
@@ -15,6 +15,7 @@ import {
 interface FolderTreeProps {
   folders: Folder[];
   notes: Note[];
+  references?: ReferenceFile[];
   selectedFolderId: string | null;
   onSelectFolder: (id: string | null) => void;
   onCreateFolder: (name: string, parentId?: string | null) => Promise<void>;
@@ -48,10 +49,16 @@ export function buildFolderTree(folders: Folder[]): FolderTreeNode[] {
   return roots;
 }
 
-// Count notes in folder and all descendants
-export function countFolderNotes(folderId: string, folders: Folder[], notes: Note[]): number {
+// Count notes and references in folder and all descendants
+export function countFolderNotes(
+  folderId: string,
+  folders: Folder[],
+  notes: Note[],
+  references?: ReferenceFile[]
+): number {
   const safeFolders = Array.isArray(folders) ? folders : [];
   const safeNotes = Array.isArray(notes) ? notes : [];
+  const safeRefs = Array.isArray(references) ? references : [];
   const subFolderIds = new Set<string>([folderId]);
   let added = true;
   while (added) {
@@ -63,12 +70,15 @@ export function countFolderNotes(folderId: string, folders: Folder[], notes: Not
       }
     }
   }
-  return safeNotes.filter((n) => n.folder_id && subFolderIds.has(n.folder_id)).length;
+  const notesCount = safeNotes.filter((n) => n.folder_id && subFolderIds.has(n.folder_id)).length;
+  const refsCount = safeRefs.filter((r) => r.folder_id && subFolderIds.has(r.folder_id)).length;
+  return notesCount + refsCount;
 }
 
 export const FolderTree: React.FC<FolderTreeProps> = ({
   folders,
   notes,
+  references,
   selectedFolderId,
   onSelectFolder,
   onCreateFolder,
@@ -142,7 +152,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
     const isExpanded = expandedFolderIds.has(node.id);
     const isSelected = selectedFolderId === node.id;
     const hasChildren = node.children.length > 0;
-    const noteCount = countFolderNotes(node.id, folders, notes);
+    const noteCount = countFolderNotes(node.id, folders, notes, references);
     const isEditing = editingFolderId === node.id;
 
     if (isEditing) {

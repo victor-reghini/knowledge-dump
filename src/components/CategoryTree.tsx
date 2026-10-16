@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Category, CategoryTreeNode, Note } from '../types';
+import { Category, CategoryTreeNode, Note, ReferenceFile } from '../types';
 import {
   ChevronRight,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
 interface CategoryTreeProps {
   categories: Category[];
   notes: Note[];
+  references?: ReferenceFile[];
   selectedCategoryId: string | null;
   onSelectCategory: (id: string | null) => void;
   onCreateCategory: (data: { name: string; color?: string; parent_id?: string | null }) => Promise<void>;
@@ -44,9 +45,16 @@ export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
   return roots;
 }
 
-export function countCategoryNotes(categoryId: string, categories: Category[], notes: Note[]): number {
+// Count notes and references in category and all descendants
+export function countCategoryNotes(
+  categoryId: string,
+  categories: Category[],
+  notes: Note[],
+  references?: ReferenceFile[]
+): number {
   const safeCats = Array.isArray(categories) ? categories : [];
   const safeNotes = Array.isArray(notes) ? notes : [];
+  const safeRefs = Array.isArray(references) ? references : [];
   const subCategoryIds = new Set<string>([categoryId]);
   let added = true;
   while (added) {
@@ -58,7 +66,9 @@ export function countCategoryNotes(categoryId: string, categories: Category[], n
       }
     }
   }
-  return safeNotes.filter((n) => n.category_id && subCategoryIds.has(n.category_id)).length;
+  const notesCount = safeNotes.filter((n) => n.category_id && subCategoryIds.has(n.category_id)).length;
+  const refsCount = safeRefs.filter((r) => r.category_id && subCategoryIds.has(r.category_id)).length;
+  return notesCount + refsCount;
 }
 
 const PALETTE = [
@@ -75,6 +85,7 @@ const PALETTE = [
 export const CategoryTree: React.FC<CategoryTreeProps> = ({
   categories,
   notes,
+  references,
   selectedCategoryId,
   onSelectCategory,
   onCreateCategory,
@@ -154,7 +165,7 @@ export const CategoryTree: React.FC<CategoryTreeProps> = ({
     const isExpanded = expandedIds.has(node.id);
     const isSelected = selectedCategoryId === node.id;
     const hasChildren = node.children.length > 0;
-    const noteCount = countCategoryNotes(node.id, categories, notes);
+    const noteCount = countCategoryNotes(node.id, categories, notes, references);
     const isEditing = editingCategoryId === node.id;
 
     if (isEditing) {

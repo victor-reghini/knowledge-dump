@@ -115,6 +115,8 @@ export function initDatabase() {
       authors TEXT,
       year INTEGER,
       doi TEXT,
+      folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
+      category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -153,6 +155,8 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE folders ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE;"); } catch {}
+  try { db.exec("ALTER TABLE references_files ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL;"); } catch {}
+  try { db.exec("ALTER TABLE references_files ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL;"); } catch {}
 
   // Ensure default user exists
   const defaultUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as { id: string } | undefined;

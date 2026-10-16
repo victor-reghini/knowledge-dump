@@ -122,6 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <FolderTree
             folders={safeFolders}
             notes={safeAllNotes}
+            references={safeReferences}
             selectedFolderId={selectedFolderId}
             onSelectFolder={onSelectFolder}
             onCreateFolder={onCreateFolder}
@@ -135,6 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <CategoryTree
             categories={safeCategories}
             notes={safeAllNotes}
+            references={safeReferences}
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={onSelectCategory}
             onCreateCategory={onCreateCategory}
@@ -246,38 +248,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Filtered Notes List */}
+        {/* Filtered Notes & Files in selected Folder / Category */}
         <div style={{ marginTop: 'auto' }}>
-          <div className="nav-section-title">
-            <span>
-              {selectedCategoryId
-                ? 'Notas na Categoria'
-                : selectedFolderId
-                ? 'Notas na Pasta'
-                : 'Anotações Rápidas'} ({notes.length})
-            </span>
-          </div>
-          {notes.map((note) => {
-            const isActive = activeNoteId === note.id;
+          {(() => {
+            const folderOrCatRefs = safeReferences.filter((r) => {
+              if (selectedFolderId && r.folder_id === selectedFolderId) return true;
+              if (selectedCategoryId && r.category_id === selectedCategoryId) return true;
+              return false;
+            });
+            const totalCount = notes.length + folderOrCatRefs.length;
+
             return (
-              <button
-                key={note.id}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectNote(note.id)}
-              >
-                <span className="nav-item-content">
-                  {note.is_favorite ? (
-                    <Star size={14} className="nav-item-icon" style={{ color: '#eab308' }} />
-                  ) : note.is_public ? (
-                    <Globe size={14} className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
-                  ) : (
-                    <FileText size={14} className="nav-item-icon" />
-                  )}
-                  <span>{note.title}</span>
-                </span>
-              </button>
+              <>
+                <div className="nav-section-title">
+                  <span>
+                    {selectedCategoryId
+                      ? 'Itens na Categoria'
+                      : selectedFolderId
+                      ? 'Itens na Pasta'
+                      : 'Anotações Rápidas'} ({totalCount})
+                  </span>
+                </div>
+
+                {/* References inside this folder/category */}
+                {folderOrCatRefs.map((ref) => {
+                  const isActive = activeReferenceId === ref.id;
+                  return (
+                    <button
+                      key={ref.id}
+                      className={`nav-item ${isActive ? 'active' : ''}`}
+                      onClick={() => onSelectReference(ref)}
+                      title={`Arquivo: ${ref.title}`}
+                      style={{ borderLeft: '2px solid var(--primary-yellow-border)' }}
+                    >
+                      <span className="nav-item-content">
+                        <FileText size={14} className="nav-item-icon" style={{ color: '#ef4444' }} />
+                        <span className="truncate">{ref.title}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Notes inside this folder/category */}
+                {notes.map((note) => {
+                  const isActive = activeNoteId === note.id;
+                  return (
+                    <button
+                      key={note.id}
+                      className={`nav-item ${isActive ? 'active' : ''}`}
+                      onClick={() => onSelectNote(note.id)}
+                    >
+                      <span className="nav-item-content">
+                        {note.is_favorite ? (
+                          <Star size={14} className="nav-item-icon" style={{ color: '#eab308' }} />
+                        ) : note.is_public ? (
+                          <Globe size={14} className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
+                        ) : (
+                          <FileText size={14} className="nav-item-icon" />
+                        )}
+                        <span>{note.title}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
         </div>
       </nav>
     </aside>

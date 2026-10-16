@@ -551,13 +551,40 @@ server.delete('/api/bookmarks/:id', async (request) => {
 // References list
 server.get('/api/references', async (request) => {
   const userId = getUserId(request);
-  return db.prepare('SELECT * FROM references_files WHERE user_id = ? OR user_id IS NULL ORDER BY created_at DESC').all(userId);
+  const { folder_id, category_id } = request.query as { folder_id?: string; category_id?: string };
+
+  let query = `
+    SELECT rf.*, c.name as category_name, c.color as category_color, f.name as folder_name
+    FROM references_files rf
+    LEFT JOIN categories c ON rf.category_id = c.id
+    LEFT JOIN folders f ON rf.folder_id = f.id
+    WHERE (rf.user_id = ? OR rf.user_id IS NULL)
+  `;
+  const params: any[] = [userId];
+
+  if (folder_id) {
+    query += ' AND rf.folder_id = ?';
+    params.push(folder_id);
+  }
+  if (category_id) {
+    query += ' AND rf.category_id = ?';
+    params.push(category_id);
+  }
+
+  query += ' ORDER BY rf.created_at DESC';
+  return db.prepare(query).all(...params);
 });
 
 // Single Reference
 server.get('/api/references/:id', async (request, reply) => {
   const { id } = request.params as { id: string };
-  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id);
+  const ref = db.prepare(`
+    SELECT rf.*, c.name as category_name, c.color as category_color, f.name as folder_name
+    FROM references_files rf
+    LEFT JOIN categories c ON rf.category_id = c.id
+    LEFT JOIN folders f ON rf.folder_id = f.id
+    WHERE rf.id = ?
+  `).get(id);
   if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
   return ref;
 });
@@ -734,15 +761,27 @@ server.post('/api/references', async (request, reply) => {
     const title = fields.title?.value || data.filename.replace(/\.[^.]+$/, '');
     const authors = fields.authors?.value || '';
     const year = fields.year?.value ? parseInt(fields.year.value, 10) : new Date().getFullYear();
+    const folderId = fields.folder_id?.value || null;
+    const categoryId = fields.category_id?.value || null;
     const fileType = detectFileType(data.filename);
     const id = `ref-${Date.now()}`;
 
     db.prepare(`
-      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, userId, title, `references/${filename}`, fileType, authors, year);
+      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year, folder_id, category_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, title, `references/${filename}`, fileType, authors, year, folderId, categoryId);
 
-    return { id, user_id: userId, title, file_path: `references/${filename}`, file_type: fileType, authors, year };
+    return {
+      id,
+      user_id: userId,
+      title,
+      file_path: `references/${filename}`,
+      file_type: fileType,
+      authors,
+      year,
+      folder_id: folderId,
+      category_id: categoryId
+    };
   } else {
     const body = request.body as {
       title: string;
@@ -750,6 +789,8 @@ server.post('/api/references', async (request, reply) => {
       authors?: string;
       year?: number;
       doi?: string;
+      folder_id?: string | null;
+      category_id?: string | null;
       file_base64?: string;
       filename?: string;
       file_type?: string;
@@ -770,12 +811,51 @@ server.post('/api/references', async (request, reply) => {
     }
 
     db.prepare(`
-      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, userId, body.title, filePath, fileType, body.authors || null, body.year || null, body.doi || null);
+      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi, folder_id, category_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, body.title, filePath, fileType, body.authors || null, body.year || null, body.doi || null, body.folder_id || null, body.category_id || null);
 
     return { id, user_id: userId, ...body, file_path: filePath, file_type: fileType };
   }
+});
+
+// Update Reference (organize into folder, categorize, edit metadata)
+server.put('/api/references/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as {
+    title?: string;
+    folder_id?: string | null;
+    category_id?: string | null;
+    authors?: string | null;
+    year?: number | null;
+    doi?: string | null;
+  };
+
+  const existing = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as any;
+  if (!existing) return reply.status(404).send({ error: 'Referência não encontrada' });
+
+  const title = body.title !== undefined ? body.title : existing.title;
+  const folderId = body.folder_id !== undefined ? body.folder_id : existing.folder_id;
+  const categoryId = body.category_id !== undefined ? body.category_id : existing.category_id;
+  const authors = body.authors !== undefined ? body.authors : existing.authors;
+  const year = body.year !== undefined ? body.year : existing.year;
+  const doi = body.doi !== undefined ? body.doi : existing.doi;
+
+  db.prepare(`
+    UPDATE references_files
+    SET title = ?, folder_id = ?, category_id = ?, authors = ?, year = ?, doi = ?
+    WHERE id = ?
+  `).run(title, folderId, categoryId, authors, year, doi, id);
+
+  const updated = db.prepare(`
+    SELECT rf.*, c.name as category_name, c.color as category_color, f.name as folder_name
+    FROM references_files rf
+    LEFT JOIN categories c ON rf.category_id = c.id
+    LEFT JOIN folders f ON rf.folder_id = f.id
+    WHERE rf.id = ?
+  `).get(id);
+
+  return updated;
 });
 
 // Delete Reference

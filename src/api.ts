@@ -283,6 +283,19 @@ export const api = {
     return res.json();
   },
 
+  async updateReference(id: string, data: Partial<ReferenceFile>): Promise<ReferenceFile> {
+    const res = await fetch(`${BASE_URL}/references/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha ao atualizar referência');
+    }
+    return res.json();
+  },
+
   async deleteReference(id: string): Promise<{ success: boolean }> {
     const res = await fetch(`${BASE_URL}/references/${id}`, {
       method: 'DELETE',

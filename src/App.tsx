@@ -251,6 +251,12 @@ export const App: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('title', file.name.replace(/\.[^.]+$/, ''));
+      if (selectedFolderId) {
+        formData.append('folder_id', selectedFolderId);
+      }
+      if (selectedCategoryId) {
+        formData.append('category_id', selectedCategoryId);
+      }
       const newRef = await api.createReference(formData);
       const updatedRefs = await api.getReferences();
       setReferences(updatedRefs);
@@ -260,6 +266,20 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Erro ao enviar PDF:', err);
       alert('Erro ao enviar PDF: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleUpdateReference = async (id: string, data: Partial<ReferenceFile>) => {
+    try {
+      await api.updateReference(id, data);
+      const updatedRefs = await api.getReferences();
+      setReferences(updatedRefs);
+      if (activeReference?.id === id) {
+        const found = updatedRefs.find((r) => r.id === id);
+        if (found) setActiveReference(found);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar referência:', err);
     }
   };
 
@@ -614,13 +634,18 @@ export const App: React.FC = () => {
                     />
                   </div>
                 ) : (
-                  /* Directory View (RF-04: List or Grid view) */
+                  /* Directory View (RF-04: List or Grid view with Notes & References) */
                   <NotesDirectoryView
                     title={directoryTitle}
                     notes={filteredNotes}
+                    references={references}
+                    folders={folders}
+                    categories={categories}
                     currentFolder={currentFolder}
                     currentCategory={currentCategory}
                     onSelectNote={setActiveNoteId}
+                    onSelectReference={handleSelectReference}
+                    onUpdateReference={handleUpdateReference}
                     onNewNote={handleCreateNote}
                     onOpenShareModal={(note) => setShareModalNote(note)}
                   />
