@@ -72,10 +72,10 @@ gantt
     section Fase 2: Experiência Mac & Visualizadores
     Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :done, b1, 2026-10-28, 2026-10-29
     Visualizadores Auxiliares (DOCX, LaTeX, MD) (Ativ 2.3)     :done, b3, 2026-10-29, 2026-10-30
-    Testes de Carga com PDFs Volumosos (100MB+) (Ativ 2.4)     :b4, after b3, 4d
+    Testes de Carga com PDFs Volumosos (100MB+) (Ativ 2.4)     :done, b4, 2026-10-30, 2026-10-30
 
     section Fase 3: Estudos & Síntese
-    Visualizador de Grafo Interativo (Ativ 3.1)                :c1, after b4, 8d
+    Visualizador de Grafo Interativo (Ativ 3.1)                :active, c1, 2026-10-30, 8d
     Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :c2, after c1, 10d
     Modo de Redação e Exportação Científica (Ativ 3.3)         :c3, after c2, 7d
     Validação do Fluxo de Estudos (Ativ 3.4)                   :c4, after c3, 5d
