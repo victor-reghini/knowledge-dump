@@ -3,10 +3,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
-const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
+export const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
+export const REFS_DIR = path.join(DATA_DIR, 'references');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(REFS_DIR)) {
+  fs.mkdirSync(REFS_DIR, { recursive: true });
 }
 
 const DB_PATH = path.join(DATA_DIR, 'knowledge.db');
@@ -163,6 +167,40 @@ export function initDatabase() {
   const noteCount = (db.prepare('SELECT count(*) as count FROM notes').get() as { count: number }).count;
   if (noteCount === 0) {
     seedStarterData(adminUserId);
+  } else {
+    ensureSampleReferences(adminUserId);
+  }
+}
+
+function ensureSampleReferences(userId: string) {
+  // Ensure sample subfolder exists
+  db.prepare(`
+    INSERT OR IGNORE INTO folders (id, user_id, name, parent_id)
+    VALUES ('folder-modelos-conexionistas', ?, 'Modelos Conexionistas', 'folder-inteligencia-artificial')
+  `).run(userId);
+
+  // Ensure sample reference paper exists
+  db.prepare(`
+    INSERT OR IGNORE INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
+    VALUES ('ref-rosenblatt-1958', ?, 'The Perceptron: A Probabilistic Model for Information Storage and Organization in the Brain', 'references/rosenblatt1958_perceptron.pdf', 'pdf', 'Frank Rosenblatt', 1958, '10.1037/h0042519')
+  `).run(userId);
+
+  // Ensure sample citation exists
+  db.prepare(`
+    INSERT OR IGNORE INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
+    VALUES ('cite-1', 'note-perceptron', 'ref-rosenblatt-1958', 'A convergência do Perceptron é garantida se o conjunto for linearmente separável', 7, 'p=7')
+  `).run();
+
+  // Ensure note-perceptron has the deep link reference in its content
+  const notePerceptron = db.prepare('SELECT content FROM notes WHERE id = ?').get('note-perceptron') as { content: string } | undefined;
+  if (notePerceptron && !notePerceptron.content.includes('linearmente separável')) {
+    const updatedContent = `${notePerceptron.content}
+
+## Citação do Artigo Original {#citacao-rosenblatt}
+> "A convergência do Perceptron é garantida se o conjunto for linearmente separável."
+> — [Frank Rosenblatt (1958), p. 7](pdf://ref-rosenblatt-1958?page=7)
+`;
+    db.prepare('UPDATE notes SET content = ? WHERE id = ?').run(updatedContent, 'note-perceptron');
   }
 }
 
@@ -178,6 +216,12 @@ function seedStarterData(userId: string) {
     INSERT OR IGNORE INTO folders (id, user_id, name, parent_id)
     VALUES (?, ?, ?, ?)
   `).run(defaultFolderId, userId, 'Inteligência Artificial', null);
+
+  const subFolderId = 'folder-modelos-conexionistas';
+  db.prepare(`
+    INSERT OR IGNORE INTO folders (id, user_id, name, parent_id)
+    VALUES (?, ?, ?, ?)
+  `).run(subFolderId, userId, 'Modelos Conexionistas', defaultFolderId);
 
   const tagId = 'tag-ia';
   db.prepare(`
@@ -221,12 +265,16 @@ O **Perceptron** é o algoritmo de classificação binária supervisionada mais 
 
 Foi concebido para simular o comportamento de um neurônio biológico com pesos sinápticos e função de ativação degrau.
 
-Ver também: [[Redes Neurais Artificiais]]`;
+Ver também: [[Redes Neurais Artificiais]]
+
+## Citação do Artigo Original {#citacao-rosenblatt}
+> "A convergência do Perceptron é garantida se o conjunto for linearmente separável."
+> — [Frank Rosenblatt (1958), p. 7](pdf://ref-rosenblatt-1958?page=7)`;
 
   db.prepare(`
     INSERT INTO notes (id, user_id, title, content, category_id, folder_id, is_favorite, is_public, share_token)
     VALUES (?, ?, ?, ?, ?, ?, 0, 0, null)
-  `).run(noteId2, userId, title2, content2, defaultCategoryId, defaultFolderId);
+  `).run(noteId2, userId, title2, content2, defaultCategoryId, subFolderId);
 
   // Link note_tags
   db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)').run(noteId1, tagId);
@@ -239,6 +287,18 @@ Ver também: [[Redes Neurais Artificiais]]`;
       db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(noteId2, title2, content2);
     } catch {}
   }
+
+  // Seed reference paper
+  db.prepare(`
+    INSERT OR IGNORE INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
+    VALUES ('ref-rosenblatt-1958', ?, 'The Perceptron: A Probabilistic Model for Information Storage and Organization in the Brain', 'references/rosenblatt1958_perceptron.pdf', 'pdf', 'Frank Rosenblatt', 1958, '10.1037/h0042519')
+  `).run(userId);
+
+  // Seed citation
+  db.prepare(`
+    INSERT OR IGNORE INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
+    VALUES ('cite-1', noteId2, 'ref-rosenblatt-1958', 'A convergência do Perceptron é garantida se o conjunto for linearmente separável', 7, 'p=7')
+  `).run();
 
   // Seed a sample bookmark
   db.prepare(`

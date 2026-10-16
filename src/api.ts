@@ -1,4 +1,4 @@
-import { Note, Folder, Category, Tag, Bookmark, SearchResult, User } from './types';
+import { Note, Folder, Category, Tag, Bookmark, SearchResult, User, ReferenceFile, Citation } from './types';
 
 const BASE_URL = '/api';
 
@@ -106,6 +106,23 @@ export const api = {
     return res.json();
   },
 
+  async updateFolder(id: string, data: { name?: string; parent_id?: string | null }): Promise<Folder> {
+    const res = await fetch(`${BASE_URL}/folders/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async deleteFolder(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/folders/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   async getTags(): Promise<Tag[]> {
     const res = await fetch(`${BASE_URL}/tags`, {
       headers: getAuthHeaders()
@@ -175,6 +192,75 @@ export const api = {
 
   async deleteBookmark(id: string): Promise<{ success: boolean }> {
     const res = await fetch(`${BASE_URL}/bookmarks/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  // References & PDFs (RF-14, RNF-03, RN-02)
+  async getReferences(): Promise<ReferenceFile[]> {
+    const res = await fetch(`${BASE_URL}/references`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getReference(id: string): Promise<ReferenceFile> {
+    const res = await fetch(`${BASE_URL}/references/${id}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Referência não encontrada');
+    return res.json();
+  },
+
+  getReferenceFileUrl(id: string): string {
+    return `${BASE_URL}/references/${id}/file`;
+  },
+
+  async createReference(data: FormData | { title: string; authors?: string; year?: number; doi?: string; file_base64?: string; filename?: string }): Promise<ReferenceFile> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const res = await fetch(`${BASE_URL}/references`, {
+      method: 'POST',
+      headers: isFormData ? getAuthHeaders() : { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: isFormData ? data : JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha ao importar referência');
+    }
+    return res.json();
+  },
+
+  async deleteReference(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/references/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  // Citations (RF-19)
+  async getCitations(noteId?: string): Promise<Citation[]> {
+    const query = noteId ? `?note_id=${encodeURIComponent(noteId)}` : '';
+    const res = await fetch(`${BASE_URL}/citations${query}`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async createCitation(data: { note_id: string; reference_id: string; quote_text: string; page_number?: number; anchor_data?: string }): Promise<Citation> {
+    const res = await fetch(`${BASE_URL}/citations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao salvar citação');
+    return res.json();
+  },
+
+  async deleteCitation(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/citations/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });

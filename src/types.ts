@@ -12,6 +12,23 @@ export interface Folder {
   updated_at: string;
 }
 
+export interface FolderTreeNode extends Folder {
+  children: FolderTreeNode[];
+  level: number;
+}
+
+export interface ReferenceFile {
+  id: string;
+  user_id?: string;
+  title: string;
+  file_path: string;
+  file_type: string;
+  authors?: string | null;
+  year?: number | null;
+  doi?: string | null;
+  created_at?: string;
+}
+
 export interface Category {
   id: string;
   name: string;

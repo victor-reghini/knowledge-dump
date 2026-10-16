@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2 } from 'lucide-react';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -9,6 +9,8 @@ interface HeaderProps {
   notesCount: number;
   currentUser: User | null;
   onOpenAuth: () => void;
+  isSplitViewOpen?: boolean;
+  onToggleSplitView?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,7 +19,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   notesCount,
   currentUser,
-  onOpenAuth
+  onOpenAuth,
+  isSplitViewOpen,
+  onToggleSplitView
 }) => {
   return (
     <header className="top-header" role="banner">
@@ -34,6 +38,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
+        {onToggleSplitView && (
+          <button
+            className={`user-badge-btn ${isSplitViewOpen ? 'active' : ''}`}
+            onClick={onToggleSplitView}
+            title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela com Visualizador de PDF'}
+            style={{
+              backgroundColor: isSplitViewOpen ? 'var(--primary-yellow-light)' : undefined,
+              borderColor: isSplitViewOpen ? 'var(--primary-yellow-border)' : undefined,
+              color: isSplitViewOpen ? 'var(--primary-yellow-text)' : undefined
+            }}
+          >
+            <Columns2 size={15} />
+            <span>{isSplitViewOpen ? 'Split-View Ativo' : 'Visualizador PDF'}</span>
+          </button>
+        )}
+
         <div
           style={{
             display: 'flex',

@@ -66,8 +66,8 @@ gantt
     Design System Temas Claro/Escuro & Paleta (Ativ 1.1e)      :done, a1e, 2026-10-25, 2026-10-25
     Motor de Busca Global Full-Text FTS5 (Ativ 2.2 Antecipada) :done, b2, 2026-10-25, 2026-10-26
     Editor Tiptap com Wikilinks & Marcadores (Ativ 1.3)        :done, a3, 2026-10-26, 2026-10-27
-    Árvore de Pastas e Visualizador PDF (Ativ 1.4)             :active, a4, 2026-10-27, 8d
-    Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :a5, after a4, 5d
+    Árvore de Pastas e Visualizador PDF (Ativ 1.4)             :done, a4, 2026-10-27, 2026-10-28
+    Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :active, a5, 2026-10-28, 5d
 
     section Fase 2: Experiência Mac & Visualizadores
     Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :b1, after a5, 5d
@@ -169,18 +169,23 @@ gantt
   - Suporte a âncoras de cabeçalho `{#secao}` com scroll suave e ícones interativos de âncora ⚓ ([RF-08](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L71)).
   - Gestão de marcadores/marca-páginas contextuais com notas ([RF-05](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/requisitos.md#L65)).
 
-#### Atividade 1.4: Navegação em Pastas e Visualizador PDF com Deep-Link [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳** (Próxima atividade)
-- **Branch Prevista:** `feature/1.4-visualizador-pdf-deeplink`
+#### Atividade 1.4: Navegação em Pastas e Visualizador PDF com Deep-Link [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/1.4-visualizador-pdf-deeplink`
 - **Responsável:** `agent-development`
 - **Descrição:** Construir painel lateral de navegação em árvore e integrar PDF.js em modo Split-View com extração de citações vinculadas a páginas e parágrafos.
-- **Comando para o Agente:**
-```bash
-Implemente o explorador lateral em árvore de pastas e o visualizador de PDF embutido (PDF.js) com suporte a painel duplo (Split-View) e ferramenta de citação com deep-link direto para a página e coordenadas do texto.
-```
+- **Entregas Realizadas:**
+  - Componente de árvore hierárquica `FolderTree.tsx` com suporte a subpastas aninhadas infinitas, colapso/expansão, criação inline de pastas raiz e subpastas, e contagem recursiva de notas.
+  - Visualizador embutido de PDF `PdfViewer.tsx` baseado em `pdfjs-dist` com suporte a paginação, zoom escalonável, rotação em 90°, busca textual na página e seleção de texto nativa (RF-14, RNF-03, RN-02).
+  - Modo Split-View responsivo (`App.tsx`) dividindo a tela lado a lado entre o editor de anotações e o leitor de PDF, com toggles no cabeçalho e na barra de ferramentas.
+  - Ferramenta de citação em seleção de texto com tooltip flutuante e inserção automática em bloco Markdown na nota ativa (RF-19).
+  - Protocolo de deep-link `pdf://<refId>?page=<X>` com salto instantâneo e highlight para a página correspondente ao clicar em citações ou links em anotações (Cenário 2 de BDD).
+  - Upload direto de papers PDF via `@fastify/multipart` e gestão de acervo em disco e no SQLite (`references_files` e `citations`).
+  - Paper acadêmico de demonstração de 8 páginas gerado e persistido em `data/references/rosenblatt1958_perceptron.pdf`.
+  - Suíte de testes automatizados `tests/atividade-1.4.test.ts` e script de teste multiplataforma `scripts/test.js`.
 
 #### Atividade 1.5: Homologação de Aceite do MVP no Docker [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
+- **Status:** **PENDENTE ⏳** (Próxima atividade)
 - **Branch Prevista:** `test/1.5-homologacao-mvp-docker`
 - **Responsável:** `agent-testing`
 - **Descrição:** Testar a inicialização do container no macOS e validar os Cenários BDD 1 e 2 no navegador e no modo PWA instalado.
