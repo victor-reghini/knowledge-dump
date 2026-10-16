@@ -61,8 +61,9 @@ erDiagram
 - **RF-01 (Árvore de Pastas)**: O sistema deve permitir criar pastas e subpastas com profundidade arbitrária para acomodar notas e arquivos anexos.
 - **RF-02 (Categorias)**: O sistema deve permitir definir categorias temáticas exclusivas ou complementares para agrupar notas e referências.
 - **RF-03 (Tags Transversais)**: O sistema deve permitir associar múltiplas tags a qualquer nota ou arquivo de referência, com suporte a sugestão e autocompletar.
-- **RF-04 (Múltiplas Vistas)**: O sistema deve permitir visualizar os itens por hierarquia de pastas, por categorias, por nuvem/lista de tags, por lista de marcadores/destaques ou por linha do tempo de criação/modificação.
+- **RF-04 (Múltiplas Vistas e Visualização de Pastas/Categorias)**: O sistema deve permitir visualizar itens por hierarquia de pastas, categorias, tags, marcadores ou linha do tempo. Ao acessar qualquer pasta ou categoria, o sistema deve exibir as notas contidas diretamente na área principal (Main View), permitindo ao usuário alternar entre **Visão em Lista** e **Visão em Grade (Cards)**.
 - **RF-05 (Marcadores e Marca-Páginas / Bookmarks)**: O sistema deve permitir criar marcadores (estilo marca-páginas) em notas, seções ou pontos de documentos de referência (páginas de PDF, timestamps de áudio/vídeo ou parágrafos). O usuário pode utilizá-los tanto como um destaque simples (sem anotação, para sinalização e retorno rápido) quanto com anotações e comentários contextuais associados.
+
 
 ### 3.2. Editor de Anotações e Hiperlinks Estilo Wikipédia
 - **RF-06 (Editor de Conteúdo Rico)**: O sistema deve fornecer editor de anotações com suporte a texto formatado, cabeçalhos hierárquicos, listas, tabelas, blocos de código com destaque de sintaxe e fórmulas matemáticas (estilo LaTeX / KaTeX).
@@ -111,9 +112,11 @@ erDiagram
 - **RF-32 (Visualização em Grafo)**: O sistema deve gerar um mapa visual interativo em forma de grafo de nós e arestas, onde nós representam notas/referências e arestas representam os links entre elas.
 - **RF-33 (Filtros no Grafo)**: O usuário deve poder isolar agrupamentos de nós por categoria, tag ou densidade de conexões.
 
-### 3.10. Sincronização em Nuvem e Backup Externo
+### 3.10. Sincronização em Nuvem, Autenticação e Compartilhamento
 - **RF-34 (Sincronização Multi-Dispositivo)**: O sistema deve sincronizar notas, arquivos de referência, marcadores e configurações entre computadores e dispositivos móveis (smartphones/tablets) por meio de um serviço em nuvem, garantindo que edições efetuadas em um dispositivo sejam replicadas e acessíveis nos demais.
 - **RF-35 (Backup Geral e Upload para Google Drive)**: O sistema deve permitir gerar um pacote de backup/exportação completo de todo o acervo (notas, arquivos anexos, índices e metadados) e realizar o envio (upload) direto para a conta do usuário no Google Drive via integração com o serviço.
+- **RF-36 (Autenticação e Autoria de Notas)**: As anotações do sistema devem estar associadas a um usuário devidamente autenticado via login e senha. O sistema deve garantir a privacidade das anotações de cada usuário.
+- **RF-37 (Compartilhamento Público de Notas e Redes)**: O usuário autenticado deve poder disponibilizar notas individuais ou grupos de notas como públicas através de links compartilháveis. Ao compartilhar uma nota, o usuário pode opcionalmente incluir na visualização pública as suas fontes/referências citadas e notas relacionadas conectadas via Wikilinks.
 
 ---
 
@@ -122,7 +125,11 @@ erDiagram
 - **RNF-01 (Desempenho de Busca)**: Resultados de busca em acervos de até 10.000 notas e referências devem retornar em menos de 500ms.
 - **RNF-02 (Privacidade e Local-First)**: O sistema deve ser desenhado sob a premissa de *Local-First* / soberania dos dados do usuário: todos os arquivos, notas e índices devem ser armazenados localmente no dispositivo do usuário, funcionando 100% sem dependência obrigatória de servidores ou conexão à internet.
 - **RNF-03 (Manipulação de Arquivos Volumosos)**: O carregamento e navegação de documentos PDF pesados (livros didáticos e teses de 100MB+) não devem travar a interface de usuário nem consumir memória excessiva.
-- **RNF-04 (Acessibilidade)**: A interface deve seguir as diretrizes WCAG 2.1 nível AA, garantindo contraste adequado, navegação completa por teclado e suporte a temas claro e escuro de alto contraste.
+- **RNF-04 (Acessibilidade, Identidade Visual e Temas)**:
+  - O sistema deve iniciar por padrão no **Tema Claro**.
+  - No **Tema Escuro**, as cores estruturais de fundo e painéis devem ser compostas estritamente por **tons neutros de cinza** (ex.: `#121212`, `#1e1e1e`, `#2d2d2d`), abolindo matrizes azuladas ou arroxeadas.
+  - A **cor primária do sistema é Amarela**: um tom amarelo pastel suave no tema claro e um amarelo/âmbar mais escuro e quente no tema escuro, garantindo conformidade com WCAG AA para contraste e legibilidade de textos.
+  - As **cores de destaque funcional** para botões de ação e sinalizadores devem utilizar **azul** (informativo/links), **verde** (sucesso/confirmação/salvo) e **vermelho** (destrutivo/exclusão/links órfãos).
 - **RNF-05 (Integridade Referencial)**: Ao renomear ou mover uma nota ou pasta, todos os Wikilinks correspondentes existentes em outras notas devem ser atualizados automaticamente (*cascade update*), evitando links mortos.
 - **RNF-06 (Portabilidade dos Dados)**: As notas devem ser salvas ou exportáveis em formatos abertos e universais (como Markdown com metadados em YAML frontmatter), sem travas proprietárias (*no vendor lock-in*).
 - **RNF-07 (Sincronização Segura e Resiliência Offline)**: A sincronização deve respeitar o princípio *Local-First*, assegurando funcionamento e edição plenos mesmo sem conexão à rede, enviando alterações diferenciais de forma automática ao restabelecer sinal, com criptografia em trânsito e em repouso.
