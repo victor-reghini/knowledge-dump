@@ -186,8 +186,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   // Render inline tokens: Math ($...$), Wikilinks ([[...]]), Bold (**...**), Code (`...`)
   const renderInlineContent = (text: string) => {
+    if (!text) return null;
     // Clean any residual HTML inline tags
-    const normalized = text
+    const normalized = String(text)
       .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
       .replace(/<b>(.*?)<\/b>/gi, '**$1**')
       .replace(/<em>(.*?)<\/em>/gi, '*$1*')
@@ -198,15 +199,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     const mathParts = normalized.split(/(\$[^$\n]+\$)/g);
 
     return mathParts.map((mathPart, mIdx) => {
+      if (!mathPart) return null;
       if (mathPart.startsWith('$') && mathPart.endsWith('$') && mathPart.length > 2) {
         const mathExpr = mathPart.slice(1, -1);
         return <React.Fragment key={`m-${mIdx}`}>{renderKaTeX(mathExpr, false)}</React.Fragment>;
       }
 
       // 2. Wikilinks ([[...]])
-      const wikiParts = mathPart.split(/(\[\[[^\]]+\]\])/g);
+      const wikiParts = (mathPart || '').split(/(\[\[[^\]]+\]\])/g);
 
       return wikiParts.map((wikiPart, wIdx) => {
+        if (!wikiPart) return null;
         const match = wikiPart.match(/^\[\[([^\]#]+)(?:#([^\]]+))?\]\]$/);
         if (match) {
           const targetTitle = match[1].trim();
@@ -255,15 +258,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         }
 
         // 3. Bold (**...**)
-        const boldParts = wikiPart.split(/(\*\*[^*]+\*\*)/g);
+        const boldParts = (wikiPart || '').split(/(\*\*[^*]+\*\*)/g);
         return boldParts.map((boldPart, bIdx) => {
+          if (!boldPart) return null;
           if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
             return <strong key={`b-${mIdx}-${wIdx}-${bIdx}`}>{boldPart.slice(2, -2)}</strong>;
           }
 
           // 4. Inline code (`...`)
-          const codeParts = boldPart.split(/(`[^`]+`)/g);
+          const codeParts = (boldPart || '').split(/(`[^`]+`)/g);
           return codeParts.map((codePart, cIdx) => {
+            if (!codePart) return null;
             if (codePart.startsWith('`') && codePart.endsWith('`')) {
               return (
                 <code
@@ -282,8 +287,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             }
 
             // 5. Markdown links [text](url) including pdf:// deep links (RF-19)
-            const linkParts = codePart.split(/(\[[^\]]+\]\([^)]+\))/g);
+            const linkParts = (codePart || '').split(/(\[[^\]]+\]\([^)]+\))/g);
             return linkParts.map((linkPart, lIdx) => {
+              if (!linkPart) return null;
               const linkMatch = linkPart.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
               if (linkMatch) {
                 const linkText = linkMatch[1];
@@ -375,8 +381,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   // Render hypertext Markdown with headings, KaTeX math blocks, and lists
   const renderHypertextPreview = (text: string) => {
+    if (!text) return null;
     // Normalize any block HTML tags into standard line structures
-    const cleanText = text
+    const cleanText = String(text)
       .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
       .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
       .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')

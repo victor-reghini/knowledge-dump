@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+
+\title{Redes de Hopfield e Memória Associativa Auto-organizável}
+\author{John J. Hopfield \and Pesquisadores Associados}
+\date{1982}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este trabalho formaliza a dinâmica de sistemas neurais com conexões simétricas recorrentes e formulação energética baseada no modelo de Ising da mecânica estatística. Demonstramos que o sistema converge monotonicamente para mínimos locais de uma função de energia de Liapunov.
+\end{abstract}
+
+\section{Introdução}
+Modelos conexionistas recorrentes possuem capacidade inerente de recuperação de padrões ruidosos através de dinâmica de atratores. A energia do sistema é dada por:
+
+\begin{equation}
+E = -\frac{1}{2} \sum_{i=1}^{N} \sum_{j=1}^{N} w_{ij} s_i s_j - \sum_{i=1}^{N} \theta_i s_i
+\end{equation}
+
+onde $w_{ij}$ representa o peso sináptico simétrico entre os neurônios $i$ e $j$ ($w_{ij} = w_{ji}$, com $w_{ii} = 0$), $s_i \in \{-1, +1\}$ é o estado binário de ativação, e $\theta_i$ é o limiar de disparo.
+
+\section{Regra de Aprendizado Hebbiano}
+Para armazenar $P$ padrões ortogonais $\xi^{\mu}$, os pesos são definidos pela regra hebbiana clássica:
+
+\begin{equation}
+w_{ij} = \frac{1}{N} \sum_{\mu=1}^{P} \xi_i^{\mu} \xi_j^{\mu}
+\end{equation}
+
+A capacidade teórica de armazenamento estável sem saturação é estimada em $P_{max} \approx 0.14 N$.
+
+\section{Conclusões}
+A formulação energética estabelece uma ponte entre física estatística e inteligência artificial computacional.
+
+\end{document}

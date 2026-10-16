@@ -70,8 +70,13 @@ export const api = {
   },
 
   async getHealth() {
-    const res = await fetch(`${BASE_URL}/health`);
-    return res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/health`);
+      if (!res.ok) return { status: 'error', notesCount: 0 };
+      return await res.json();
+    } catch {
+      return { status: 'offline', notesCount: 0 };
+    }
   },
 
   async getCategories(): Promise<Category[]> {

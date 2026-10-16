@@ -1,9 +1,23 @@
 import os
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
+import sys
+import subprocess
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
 def generate_academic_paper(output_path):
+    if not HAS_REPORTLAB:
+        print("[Python] reportlab não encontrado. Usando gerador nativo Node.js (scripts/generate_sample_fixtures.js)...")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        js_script = os.path.join(script_dir, "generate_sample_fixtures.js")
+        subprocess.run(["node", js_script], check=True)
+        return
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     c = canvas.Canvas(output_path, pagesize=letter)
     width, height = letter

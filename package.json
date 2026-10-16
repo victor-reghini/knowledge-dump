@@ -12,7 +12,8 @@
     "build": "npm run build:client && npm run build:server",
     "test": "node scripts/test.js",
     "start": "node dist/server/index.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/generate_sample_fixtures.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { ensureReferenceFilesOnDisk } from './fixtures.js';
 
 export const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
 export const REFS_DIR = path.join(DATA_DIR, 'references');
@@ -152,11 +153,35 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE notes ADD COLUMN share_token TEXT;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN share_include_sources INTEGER DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN share_include_related INTEGER DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE notes ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL;"); } catch {}
+  try { db.exec("ALTER TABLE notes ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL;"); } catch {}
+  try { db.exec("ALTER TABLE notes ADD COLUMN is_favorite INTEGER DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE notes ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch {}
+
   try { db.exec("ALTER TABLE folders ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
+  try { db.exec("ALTER TABLE folders ADD COLUMN parent_id TEXT REFERENCES folders(id) ON DELETE CASCADE;"); } catch {}
+  try { db.exec("ALTER TABLE folders ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch {}
+
   try { db.exec("ALTER TABLE categories ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE;"); } catch {}
+  try { db.exec("ALTER TABLE categories ADD COLUMN color TEXT DEFAULT '#eab308';"); } catch {}
+  try { db.exec("ALTER TABLE categories ADD COLUMN icon TEXT DEFAULT 'folder';"); } catch {}
+
+  try { db.exec("ALTER TABLE bookmarks ADD COLUMN reference_id TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE bookmarks ADD COLUMN color TEXT DEFAULT '#eab308';"); } catch {}
+
+  try { db.exec("ALTER TABLE references_files ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE references_files ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL;"); } catch {}
   try { db.exec("ALTER TABLE references_files ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL;"); } catch {}
+  try { db.exec("ALTER TABLE references_files ADD COLUMN authors TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE references_files ADD COLUMN year INTEGER;"); } catch {}
+  try { db.exec("ALTER TABLE references_files ADD COLUMN doi TEXT;"); } catch {}
+
+  try { db.exec("ALTER TABLE citations ADD COLUMN page_number INTEGER;"); } catch {}
+  try { db.exec("ALTER TABLE citations ADD COLUMN anchor_data TEXT;"); } catch {}
+
+  // Assegura que os arquivos físicos de fixtures e referências estejam presentes no volume
+  ensureReferenceFilesOnDisk(REFS_DIR);
 
   // Ensure default user exists
   const defaultUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as { id: string } | undefined;
@@ -169,18 +194,18 @@ export function initDatabase() {
     `).run(adminUserId, 'admin', hashPassword('admin123'), 'Pesquisador');
   }
 
-  // Ensure notes have an associated user_id
-  db.prepare('UPDATE notes SET user_id = ? WHERE user_id IS NULL').run(adminUserId);
-  db.prepare('UPDATE folders SET user_id = ? WHERE user_id IS NULL').run(adminUserId);
-  db.prepare('UPDATE categories SET user_id = ? WHERE user_id IS NULL').run(adminUserId);
+  // Ensure notes, folders, categories and references have an associated user_id
+  try { db.prepare('UPDATE notes SET user_id = ? WHERE user_id IS NULL').run(adminUserId); } catch {}
+  try { db.prepare('UPDATE folders SET user_id = ? WHERE user_id IS NULL').run(adminUserId); } catch {}
+  try { db.prepare('UPDATE categories SET user_id = ? WHERE user_id IS NULL').run(adminUserId); } catch {}
+  try { db.prepare('UPDATE references_files SET user_id = ? WHERE user_id IS NULL').run(adminUserId); } catch {}
 
   // Seed starter content if empty
   const noteCount = (db.prepare('SELECT count(*) as count FROM notes').get() as { count: number }).count;
   if (noteCount === 0) {
     seedStarterData(adminUserId);
-  } else {
-    ensureSampleReferences(adminUserId);
   }
+  ensureSampleReferences(adminUserId);
 }
 
 function ensureSampleReferences(userId: string) {

@@ -26,6 +26,7 @@ RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
+COPY --from=builder /app/fixtures ./fixtures
 
 RUN mkdir -p /app/data
 
