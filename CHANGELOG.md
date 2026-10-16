@@ -10,8 +10,37 @@ e este projeto adere ao [Versionamento Semântico (SemVer)](https://semver.org/l
 ## [Não Lançado] - Em Andamento
 
 ### Planejado
-- **Atividade 1.4 (Visualizador PDF com Deep-Link):** Integração do PDF.js em modo Split-View (painel duplo) com ferramenta de seleção de texto que gera citações na nota ativa vinculadas à página e coordenadas exatas (RF-14, RF-19, RF-20, RF-21).
-- **Atividade 1.5 (Homologação de Aceite do MVP):** Bateria de testes E2E e validação dos Cenários BDD 1 e 2 no ambiente Docker.
+- **Atividade 1.5 (Homologação de Aceite do MVP no Docker):** Bateria de testes E2E e validação dos Cenários BDD 1 e 2 no ambiente Docker.
+
+## [1.2.0] - 2026-10-16
+
+### Adicionado
+- **Árvore de Pastas Hierárquica e Navegação em Subpastas (RF-04 / Atividade 1.4):**
+  - Componente `FolderTree.tsx` com navegação recursiva em árvore hierárquica a partir de `parent_id`.
+  - Suporte a subpastas em múltiplos níveis com expansão e colapso dinâmicos (`ChevronRight` e `ChevronDown`).
+  - Criação rápida inline de pastas raiz e subpastas contextuais na barra lateral.
+  - Contagem recursiva de notas agregadas por pasta e subpastas descendentes.
+  - Endpoints REST `PUT /api/folders/:id` (renomeação/movimentação) e `DELETE /api/folders/:id`.
+- **Visualizador Embutido de PDF com PDF.js (RF-14, RNF-03, RN-02 / Atividade 1.4):**
+  - Componente de alto desempenho `PdfViewer.tsx` baseado na biblioteca nativa `pdfjs-dist` com renderização em Canvas de alta definição (DPR escalonável).
+  - Barra de ferramentas completa com navegação direta de páginas (`<`, `>`, input numérico e contagem total), zoom ajustável (50% a 250% e 100%), rotação de 90° e busca textual no documento.
+  - Camada de texto nativa (`TextLayer`) permitindo seleção de texto direta com cursor no PDF.
+  - Tratamento de imutabilidade dos originais e carregamento de páginas sob demanda com proteção de memória para documentos pesados (100MB+).
+- **Modo Split-View Duplo (Painel Dividido):**
+  - Layout dividido lado a lado no `App.tsx` integrando o editor de anotações ou diretório com o leitor de PDF em tempo real.
+  - Controles de alternância de Split-View no cabeçalho superior (`Header.tsx`) e na barra do editor (`NoteEditor.tsx`).
+  - Responsividade automática: painel lado a lado no desktop e disposição empilhada em telas móveis e tablets.
+- **Extração de Citações e Deep-Linking para Páginas de PDF (RF-19 / Cenário 2 BDD):**
+  - Tooltip flutuante instantâneo ao selecionar qualquer trecho de texto no leitor de PDF com o botão *"Citar na Anotação"*.
+  - Inserção automática de citação em bloco com aspas e metadados no corpo da nota ativa.
+  - Geração de link de âncora com protocolo deep-link `pdf://<refId>?page=<X>`.
+  - Ao clicar no link em qualquer momento posterior, o sistema abre o PDF em Split-View exatamente na página citada com destaque visual do trecho.
+  - Seção dedicada de *Citações e Fontes Bibliográficas* no rodapé da anotação com botão de salto direto para a página e opção de remoção.
+- **Upload e Acervo de Papers em PDF:**
+  - Suporte a upload multipart via `@fastify/multipart` com limite de 150MB para livros didáticos e teses acadêmicas.
+  - Endpoints dedicados: `GET /api/references`, `POST /api/references`, `GET /api/references/:id/file` (stream binário com headers de exibição inline).
+  - Paper acadêmico de demonstração de 8 páginas persistido em `data/references/rosenblatt1958_perceptron.pdf`.
+  - Suíte de testes automatizados `tests/atividade-1.4.test.ts` e script de execução de testes `scripts/test.js`.
 
 ## [1.1.1] - 2026-10-16
 

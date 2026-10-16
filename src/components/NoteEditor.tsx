@@ -19,7 +19,10 @@ import {
   Anchor as AnchorIcon,
   Layers,
   Plus,
-  X
+  X,
+  Columns2,
+  Quote,
+  FileCode
 } from 'lucide-react';
 
 interface NoteEditorProps {
@@ -32,6 +35,10 @@ interface NoteEditorProps {
   onNavigateToNoteTitle: (title: string, anchor?: string) => void;
   onAddBookmark: (noteId: string, title: string, comment?: string) => Promise<void>;
   onOpenShare: (note: Note) => void;
+  onOpenPdfDeepLink?: (referenceId: string, pageNumber: number, highlightText?: string) => void;
+  onToggleSplitView?: () => void;
+  isSplitViewOpen?: boolean;
+  onDeleteCitation?: (id: string) => Promise<void>;
 }
 
 interface HoveredWikilink {
@@ -50,7 +57,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onDelete,
   onNavigateToNoteTitle,
   onAddBookmark,
-  onOpenShare
+  onOpenShare,
+  onOpenPdfDeepLink,
+  onToggleSplitView,
+  isSplitViewOpen,
+  onDeleteCitation
 }) => {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -269,7 +280,62 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 </code>
               );
             }
-            return codePart;
+
+            // 5. Markdown links [text](url) including pdf:// deep links (RF-19)
+            const linkParts = codePart.split(/(\[[^\]]+\]\([^)]+\))/g);
+            return linkParts.map((linkPart, lIdx) => {
+              const linkMatch = linkPart.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+              if (linkMatch) {
+                const linkText = linkMatch[1];
+                const linkUrl = linkMatch[2];
+
+                if (linkUrl.startsWith('pdf://')) {
+                  const clean = linkUrl.replace('pdf://', '');
+                  const [refIdAndQuery] = clean.split('#');
+                  const [refId, queryStr] = refIdAndQuery.split('?');
+                  const params = new URLSearchParams(queryStr || '');
+                  const pageNumber = parseInt(params.get('page') || '1', 10);
+                  const highlightText = params.get('highlight') || undefined;
+
+                  return (
+                    <span
+                      key={`link-${mIdx}-${wIdx}-${bIdx}-${cIdx}-${lIdx}`}
+                      className="pdf-citation-link-badge"
+                      onClick={() => onOpenPdfDeepLink && onOpenPdfDeepLink(refId, isNaN(pageNumber) ? 1 : pageNumber, highlightText)}
+                      title={`Abrir página ${pageNumber} do PDF original (Deep-link)`}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <Quote size={12} className="pdf-cite-icon" />
+                      <span>{linkText}</span>
+                      <small className="pdf-page-pill">Pág. {pageNumber}</small>
+                    </span>
+                  );
+                }
+
+                if (linkUrl.startsWith('#')) {
+                  return (
+                    <a key={`link-${mIdx}-${wIdx}-${bIdx}-${cIdx}-${lIdx}`} href={linkUrl} className="anchor-link">
+                      {linkText}
+                    </a>
+                  );
+                }
+
+                return (
+                  <a
+                    key={`link-${mIdx}-${wIdx}-${bIdx}-${cIdx}-${lIdx}`}
+                    href={linkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="external-link"
+                  >
+                    {linkText}
+                  </a>
+                );
+              }
+
+              return linkPart;
+            });
           });
         });
       });
@@ -625,6 +691,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         </button>
 
         <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+        {onToggleSplitView && (
+          <button
+            className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
+            onClick={onToggleSplitView}
+            title={isSplitViewOpen ? 'Fechar modo Dividir Tela' : 'Dividir Tela com Visualizador de PDF (Split-View)'}
+          >
+            <Columns2 size={14} />
+            <span>{isSplitViewOpen ? 'Fechar Split-View' : 'Dividir c/ PDF'}</span>
+          </button>
+        )}
 
         <button
           className="btn-blue"
@@ -1002,6 +1079,79 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           }}
         />
       )}
+
+      {/* Citations & Sources (RF-19, Cenário 2 BDD) */}
+      <section className="citations-section" aria-label="Citações e referências extraídas de papers">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h4 className="backlinks-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Quote size={15} className="text-accent" />
+            <span>Citações & Referências Bibliográficas ({note.citations?.length || 0})</span>
+          </h4>
+          {onToggleSplitView && (
+            <button
+              type="button"
+              className="toolbar-btn"
+              onClick={onToggleSplitView}
+              style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+            >
+              <Columns2 size={13} />
+              <span>{isSplitViewOpen ? 'Fechar Split-View' : 'Abrir Visualizador PDF'}</span>
+            </button>
+          )}
+        </div>
+
+        {note.citations && note.citations.length > 0 ? (
+          <div className="citations-list">
+            {note.citations.map((cite) => (
+              <div key={cite.id} className="citation-card">
+                <blockquote className="citation-quote">
+                  <Quote size={14} className="citation-quote-icon" />
+                  <span>"{cite.quote_text}"</span>
+                </blockquote>
+                <div className="citation-meta">
+                  <span className="citation-source">
+                    <FileCode size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+                    <strong>{cite.source_title || 'Documento de Referência'}</strong>
+                    {cite.authors ? ` — ${cite.authors}` : ''}
+                    {cite.year ? ` (${cite.year})` : ''}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {cite.page_number && (
+                      <button
+                        type="button"
+                        className="citation-deeplink-btn"
+                        onClick={() =>
+                          onOpenPdfDeepLink &&
+                          cite.reference_id &&
+                          onOpenPdfDeepLink(cite.reference_id, cite.page_number!, cite.quote_text)
+                        }
+                        title={`Ir diretamente para a página ${cite.page_number} no PDF integrado`}
+                      >
+                        <AnchorIcon size={12} />
+                        <span>Página {cite.page_number} (Deep-Link)</span>
+                      </button>
+                    )}
+                    {onDeleteCitation && (
+                      <button
+                        type="button"
+                        className="ref-delete-btn"
+                        onClick={() => onDeleteCitation(cite.id)}
+                        title="Remover citação"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Nenhum trecho de PDF citado nesta anotação. Abra um paper no Visualizador PDF ao lado, selecione qualquer trecho de texto e clique em <em>"Citar na Anotação"</em> para gerar um deep-link instantâneo.
+          </p>
+        )}
+      </section>
 
       {/* Backlinks (RF-10) */}
       <section className="backlinks-section" aria-label="Notas que citam esta nota">

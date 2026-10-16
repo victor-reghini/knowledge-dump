@@ -1,13 +1,16 @@
-import React from 'react';
-import { Note, Folder, Category, Bookmark } from '../types';
+import React, { useRef } from 'react';
+import { Note, Folder, Category, Bookmark, ReferenceFile } from '../types';
+import { FolderTree } from './FolderTree';
 import {
   BookOpen,
   Plus,
-  Folder as FolderIcon,
   Bookmark as BookmarkIcon,
   FileText,
   Star,
-  Globe
+  Globe,
+  FileCode,
+  Upload,
+  Trash2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -16,7 +19,9 @@ interface SidebarProps {
   folders: Folder[];
   categories: Category[];
   bookmarks: Bookmark[];
+  references: ReferenceFile[];
   activeNoteId: string | null;
+  activeReferenceId?: string | null;
   onSelectNote: (id: string) => void;
   onNewNote: () => void;
   selectedCategoryId: string | null;
@@ -24,6 +29,11 @@ interface SidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (id: string | null) => void;
   onViewAllNotes: () => void;
+  onCreateFolder: (name: string, parentId?: string | null) => Promise<void>;
+  onDeleteFolder?: (id: string) => Promise<void>;
+  onSelectReference: (ref: ReferenceFile) => void;
+  onUploadPdf: (file: File) => Promise<void>;
+  onDeleteReference?: (id: string) => Promise<void>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,22 +42,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   folders,
   categories,
   bookmarks,
+  references,
   activeNoteId,
+  activeReferenceId,
   onSelectNote,
   onNewNote,
   selectedCategoryId,
   onSelectCategory,
   selectedFolderId,
   onSelectFolder,
-  onViewAllNotes
+  onViewAllNotes,
+  onCreateFolder,
+  onDeleteFolder,
+  onSelectReference,
+  onUploadPdf,
+  onDeleteReference
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      await onUploadPdf(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <aside className="sidebar" aria-label="Navegação Principal">
       <div className="sidebar-header">
         <div className="app-brand">
           <BookOpen className="brand-icon" />
           <span>Knowledge Dump</span>
-          <span className="brand-badge">v1.1</span>
+          <span className="brand-badge">v1.4</span>
         </div>
       </div>
 
@@ -67,32 +94,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <FileText className="nav-item-icon" />
               <span>Todas as Notas</span>
             </span>
-            <span className="nav-badge">{notes.length}</span>
+            <span className="nav-badge">{allNotes.length}</span>
           </button>
         </div>
 
-        {/* Folders (RF-04: Clicking opens directory view) */}
+        {/* Hierarchical Folders Tree (RF-04) */}
         <div>
-          <div className="nav-section-title">
-            <span>Pastas</span>
-          </div>
-          {folders.map((folder) => {
-            const count = allNotes.filter((n) => n.folder_id === folder.id).length;
-            const isActive = selectedFolderId === folder.id;
-            return (
-              <button
-                key={folder.id}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectFolder(isActive ? null : folder.id)}
-              >
-                <span className="nav-item-content">
-                  <FolderIcon className="nav-item-icon" />
-                  <span>{folder.name}</span>
-                </span>
-                <span className="nav-badge">{count}</span>
-              </button>
-            );
-          })}
+          <FolderTree
+            folders={folders}
+            notes={allNotes}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={onSelectFolder}
+            onCreateFolder={onCreateFolder}
+            onDeleteFolder={onDeleteFolder}
+          />
         </div>
 
         {/* Categories (RF-04: Clicking opens directory view) */}
@@ -123,6 +138,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span className="nav-badge">{count}</span>
               </button>
+            );
+          })}
+        </div>
+
+        {/* References & PDFs (RF-14, RF-19) */}
+        <div>
+          <div className="nav-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Referências & Papers ({references.length})</span>
+            <button
+              type="button"
+              className="folder-add-root-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Importar Paper PDF"
+            >
+              <Upload size={13} />
+              <span>PDF</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="application/pdf"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+          </div>
+
+          {references.map((ref) => {
+            const isActive = activeReferenceId === ref.id;
+            return (
+              <div key={ref.id} className="ref-nav-wrapper">
+                <button
+                  className={`nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => onSelectReference(ref)}
+                  title={ref.title}
+                >
+                  <span className="nav-item-content">
+                    <FileCode size={14} className="nav-item-icon text-accent" />
+                    <span className="truncate">{ref.title}</span>
+                  </span>
+                </button>
+                {onDeleteReference && (
+                  <button
+                    type="button"
+                    className="ref-delete-btn"
+                    title="Excluir referência"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Deseja remover a referência "${ref.title}"?`)) {
+                        onDeleteReference(ref.id);
+                      }
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

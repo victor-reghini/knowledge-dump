@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
+import multipart from '@fastify/multipart';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { db, initDatabase, hashPassword, hasFts5 } from './db.js';
+import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
 
 initDatabase();
 
@@ -14,6 +15,12 @@ const server = Fastify({
 
 await server.register(cors, {
   origin: true
+});
+
+await server.register(multipart, {
+  limits: {
+    fileSize: 150 * 1024 * 1024 // 150 MB para suportar papers e livros volumosos (RNF-03)
+  }
 });
 
 const CLIENT_DIST = path.resolve(process.cwd(), 'dist');
@@ -202,7 +209,7 @@ server.post('/api/categories', async (request) => {
   return { id, user_id: userId, ...body };
 });
 
-// Folders
+// Folders (RF-04: Árvore hierárquica e subpastas)
 server.get('/api/folders', async (request) => {
   const userId = getUserId(request);
   return db.prepare('SELECT * FROM folders WHERE user_id = ? OR user_id IS NULL ORDER BY name ASC').all(userId);
@@ -219,6 +226,25 @@ server.post('/api/folders', async (request) => {
     body.parent_id || null
   );
   return { id, user_id: userId, ...body };
+});
+
+server.put('/api/folders/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as { name?: string; parent_id?: string | null };
+  const existing = db.prepare('SELECT * FROM folders WHERE id = ?').get(id) as { id: string; name: string; parent_id: string | null } | undefined;
+  if (!existing) return reply.status(404).send({ error: 'Pasta não encontrada' });
+  const name = body.name !== undefined ? body.name : existing.name;
+  const parent_id = body.parent_id !== undefined ? body.parent_id : existing.parent_id;
+  db.prepare('UPDATE folders SET name = ?, parent_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(name, parent_id, id);
+  return { ...existing, name, parent_id };
+});
+
+server.delete('/api/folders/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('UPDATE notes SET folder_id = NULL WHERE folder_id = ?').run(id);
+  db.prepare('UPDATE folders SET parent_id = NULL WHERE parent_id = ?').run(id);
+  db.prepare('DELETE FROM folders WHERE id = ?').run(id);
+  return { success: true, id };
 });
 
 // Tags
@@ -302,6 +328,16 @@ server.get('/api/notes/:id', async (request, reply) => {
     SELECT * FROM bookmarks WHERE note_id = ? ORDER BY created_at DESC
   `).all(id);
   note.bookmarks = bookmarks;
+
+  // Citations (RF-19)
+  const citations = db.prepare(`
+    SELECT c.*, rf.title as source_title, rf.file_type, rf.authors, rf.year, rf.doi
+    FROM citations c
+    JOIN references_files rf ON c.reference_id = rf.id
+    WHERE c.note_id = ?
+    ORDER BY c.created_at ASC
+  `).all(id);
+  note.citations = citations;
 
   return note;
 });
@@ -470,6 +506,147 @@ server.delete('/api/bookmarks/:id', async (request) => {
   const { id } = request.params as { id: string };
   db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id);
   return { success: true };
+});
+
+// --- REFERENCES & CITATIONS (RF-14, RF-19, RNF-03, RN-02) ---
+
+// References list
+server.get('/api/references', async (request) => {
+  const userId = getUserId(request);
+  return db.prepare('SELECT * FROM references_files WHERE user_id = ? OR user_id IS NULL ORDER BY created_at DESC').all(userId);
+});
+
+// Single Reference
+server.get('/api/references/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id);
+  if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
+  return ref;
+});
+
+// Serve PDF stream
+server.get('/api/references/:id/file', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { file_path: string; title: string } | undefined;
+  if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
+
+  const fullPath = path.isAbsolute(ref.file_path) ? ref.file_path : path.join(DATA_DIR, ref.file_path);
+  if (!fs.existsSync(fullPath)) {
+    return reply.status(404).send({ error: 'Arquivo PDF não encontrado no disco' });
+  }
+
+  const stat = fs.statSync(fullPath);
+  reply.header('Content-Type', 'application/pdf');
+  reply.header('Content-Length', stat.size);
+  reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(ref.title)}.pdf"`);
+  return reply.send(fs.createReadStream(fullPath));
+});
+
+// Upload / Create Reference
+server.post('/api/references', async (request, reply) => {
+  const userId = getUserId(request);
+  if (request.isMultipart()) {
+    const data = await request.file();
+    if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
+    const filename = `${Date.now()}-${data.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const targetPath = path.join(REFS_DIR, filename);
+    await fs.promises.writeFile(targetPath, await data.toBuffer());
+
+    const fields = data.fields as Record<string, { value: string }>;
+    const title = fields.title?.value || data.filename.replace(/\.[^.]+$/, '');
+    const authors = fields.authors?.value || '';
+    const year = fields.year ? parseInt(fields.year.value, 10) : new Date().getFullYear();
+    const id = `ref-${Date.now()}`;
+
+    db.prepare(`
+      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year)
+      VALUES (?, ?, ?, ?, 'pdf', ?, ?)
+    `).run(id, userId, title, `references/${filename}`, authors, year);
+
+    return { id, user_id: userId, title, file_path: `references/${filename}`, file_type: 'pdf', authors, year };
+  } else {
+    const body = request.body as {
+      title: string;
+      file_path?: string;
+      authors?: string;
+      year?: number;
+      doi?: string;
+      file_base64?: string;
+      filename?: string;
+    };
+    const id = `ref-${Date.now()}`;
+    let filePath = body.file_path || '';
+    if (body.file_base64 && body.filename) {
+      const filename = `${Date.now()}-${body.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const targetPath = path.join(REFS_DIR, filename);
+      await fs.promises.writeFile(targetPath, Buffer.from(body.file_base64, 'base64'));
+      filePath = `references/${filename}`;
+    }
+
+    db.prepare(`
+      INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
+      VALUES (?, ?, ?, ?, 'pdf', ?, ?, ?)
+    `).run(id, userId, body.title, filePath, 'pdf', body.authors || null, body.year || null, body.doi || null);
+
+    return { id, user_id: userId, ...body, file_path: filePath, file_type: 'pdf' };
+  }
+});
+
+// Delete Reference
+server.delete('/api/references/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM citations WHERE reference_id = ?').run(id);
+  db.prepare('DELETE FROM references_files WHERE id = ?').run(id);
+  return { success: true, id };
+});
+
+// Citations
+server.get('/api/citations', async (request) => {
+  const { note_id } = request.query as { note_id?: string };
+  if (note_id) {
+    return db.prepare(`
+      SELECT c.*, rf.title as source_title, rf.file_type, rf.authors, rf.year, rf.doi
+      FROM citations c
+      JOIN references_files rf ON c.reference_id = rf.id
+      WHERE c.note_id = ?
+      ORDER BY c.created_at ASC
+    `).all(note_id);
+  }
+  return db.prepare(`
+    SELECT c.*, rf.title as source_title, rf.file_type, rf.authors, rf.year
+    FROM citations c
+    JOIN references_files rf ON c.reference_id = rf.id
+    ORDER BY c.created_at DESC
+  `).all();
+});
+
+server.post('/api/citations', async (request) => {
+  const body = request.body as {
+    note_id: string;
+    reference_id: string;
+    quote_text: string;
+    page_number?: number;
+    anchor_data?: string;
+  };
+  const id = `cite-${Date.now()}`;
+  db.prepare(`
+    INSERT INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, body.note_id, body.reference_id, body.quote_text, body.page_number || null, body.anchor_data || null);
+
+  const citation = db.prepare(`
+    SELECT c.*, rf.title as source_title, rf.file_type, rf.authors, rf.year
+    FROM citations c
+    JOIN references_files rf ON c.reference_id = rf.id
+    WHERE c.id = ?
+  `).get(id);
+  return citation;
+});
+
+server.delete('/api/citations/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM citations WHERE id = ?').run(id);
+  return { success: true, id };
 });
 
 // FTS5 Global Search
