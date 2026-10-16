@@ -18,6 +18,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DATA_DIR=/app/data
+ENV NODE_OPTIONS="--experimental-sqlite"
 
 # Copy production dependencies and build artifacts
 COPY package*.json ./

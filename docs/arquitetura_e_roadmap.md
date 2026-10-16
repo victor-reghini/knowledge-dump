@@ -67,7 +67,7 @@ gantt
     Motor de Busca Global Full-Text FTS5 (Ativ 2.2 Antecipada) :done, b2, 2026-10-25, 2026-10-26
     Editor Tiptap com Wikilinks & Marcadores (Ativ 1.3)        :done, a3, 2026-10-26, 2026-10-27
     Árvore de Pastas e Visualizador PDF (Ativ 1.4)             :done, a4, 2026-10-27, 2026-10-28
-    Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :active, a5, 2026-10-28, 5d
+    Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :done, a5, 2026-10-28, 2026-10-28
 
     section Fase 2: Experiência Mac & Visualizadores
     Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :b1, after a5, 5d
@@ -184,15 +184,19 @@ gantt
   - Paper acadêmico de demonstração de 8 páginas gerado e persistido em `data/references/rosenblatt1958_perceptron.pdf`.
   - Suíte de testes automatizados `tests/atividade-1.4.test.ts` e script de teste multiplataforma `scripts/test.js`.
 
-#### Atividade 1.5: Homologação de Aceite do MVP no Docker [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳** (Próxima atividade)
-- **Branch Prevista:** `test/1.5-homologacao-mvp-docker`
+#### Atividade 1.5: Homologação de Aceite do MVP no Docker [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `test/1.5-homologacao-mvp-docker`
 - **Responsável:** `agent-testing`
 - **Descrição:** Testar a inicialização do container no macOS e validar os Cenários BDD 1 e 2 no navegador e no modo PWA instalado.
-- **Comando para o Agente:**
-```bash
-Valide a subida do container via Docker Compose no ambiente Mac/Web e execute os testes dos Cenários BDD 1 (navegação por Wikilinks) e 2 (citação em PDF com deep-link), checando a persistência dos arquivos no volume montado no host.
-```
+- **Entregas Realizadas:**
+  - Suíte de testes BDD e homologação Docker implementada em `tests/homologacao-mvp-docker.test.ts`.
+  - Validação dos requisitos do Cenário 1 BDD: extração de Wikilinks com regex, resolução de notas existentes vs órfãs com criação sob demanda, identificação de âncoras de cabeçalho `{#secao}` e higienização de preview flutuante.
+  - Validação dos requisitos do Cenário 2 BDD: formatação de citação com deep-link `pdf://<refId>?page=<X>`, integridade da citação e vinculação no SQLite, e presença física do arquivo de referência `rosenblatt1958_perceptron.pdf` no volume de dados.
+  - Validação de containerização: Dockerfile multi-stage com `node:22-alpine`, compilação paralela do client e server, injeção de `NODE_OPTIONS="--experimental-sqlite"`, e mapeamento de volume `./data:/app/data` no `docker-compose.yml`.
+  - Validação de PWA: verificação dos artefatos `dist/manifest.webmanifest` e do Service Worker `dist/sw.js` com precache de assets offline gerados pelo `vite-plugin-pwa`.
+  - Homologação real com execução de container Docker, verificação de `/api/health`, `/manifest.webmanifest` e persistência bidirecional de dados no SQLite montado no host.
+
 
 ---
 
