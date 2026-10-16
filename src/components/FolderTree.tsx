@@ -7,7 +7,9 @@ import {
   ChevronDown,
   Plus,
   Trash2,
-  Edit2
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
 
 interface FolderTreeProps {
@@ -16,6 +18,7 @@ interface FolderTreeProps {
   selectedFolderId: string | null;
   onSelectFolder: (id: string | null) => void;
   onCreateFolder: (name: string, parentId?: string | null) => Promise<void>;
+  onUpdateFolder?: (id: string, data: { name?: string; parent_id?: string | null }) => Promise<void>;
   onDeleteFolder?: (id: string) => Promise<void>;
 }
 
@@ -65,11 +68,17 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
   selectedFolderId,
   onSelectFolder,
   onCreateFolder,
+  onUpdateFolder,
   onDeleteFolder
 }) => {
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set(folders.map((f) => f.id)));
   const [creatingForParentId, setCreatingForParentId] = useState<string | null | undefined>(undefined);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // Editing state
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editParentId, setEditParentId] = useState<string | null>(null);
 
   const tree = buildFolderTree(folders);
 
@@ -90,6 +99,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
     if (e) e.stopPropagation();
     setCreatingForParentId(parentId);
     setNewFolderName('');
+    setEditingFolderId(null);
     if (parentId) {
       setExpandedFolderIds((prev) => new Set([...prev, parentId]));
     }
@@ -106,11 +116,80 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
     setCreatingForParentId(undefined);
   };
 
+  const handleStartEdit = (folder: Folder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingFolderId(folder.id);
+    setEditName(folder.name);
+    setEditParentId(folder.parent_id || null);
+    setCreatingForParentId(undefined);
+  };
+
+  const handleConfirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFolderId || !editName.trim() || !onUpdateFolder) return;
+    await onUpdateFolder(editingFolderId, {
+      name: editName.trim(),
+      parent_id: editParentId
+    });
+    setEditingFolderId(null);
+  };
+
   const renderNode = (node: FolderTreeNode) => {
     const isExpanded = expandedFolderIds.has(node.id);
     const isSelected = selectedFolderId === node.id;
     const hasChildren = node.children.length > 0;
     const noteCount = countFolderNotes(node.id, folders, notes);
+    const isEditing = editingFolderId === node.id;
+
+    if (isEditing) {
+      return (
+        <form
+          key={node.id}
+          onSubmit={handleConfirmEdit}
+          className="tree-edit-form"
+          style={{ paddingLeft: `${8 + node.level * 14}px` }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="tree-edit-row">
+            <input
+              type="text"
+              autoFocus
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="folder-inline-input"
+              placeholder="Nome da pasta..."
+            />
+            <select
+              value={editParentId || ''}
+              onChange={(e) => setEditParentId(e.target.value ? e.target.value : null)}
+              className="tree-parent-select"
+            >
+              <option value="">Raiz (sem pai)</option>
+              {folders
+                .filter((f) => f.id !== node.id)
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+            </select>
+            <div className="tree-edit-buttons">
+              <button type="submit" className="tree-btn-confirm" title="Salvar">
+                <Check size={13} />
+              </button>
+              <button
+                type="button"
+                className="tree-btn-cancel"
+                onClick={() => setEditingFolderId(null)}
+                title="Cancelar"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+        </form>
+      );
+    }
 
     return (
       <div key={node.id} className="folder-tree-node-wrapper">
@@ -151,6 +230,16 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
             >
               <Plus size={13} />
             </button>
+            {onUpdateFolder && (
+              <button
+                type="button"
+                className="folder-action-btn"
+                title="Editar / Mover pasta"
+                onClick={(e) => handleStartEdit(node, e)}
+              >
+                <Edit2 size={12} />
+              </button>
+            )}
             {onDeleteFolder && (
               <button
                 type="button"
@@ -173,18 +262,30 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
         {creatingForParentId === node.id && (
           <form
             onSubmit={handleConfirmCreate}
-            className="folder-inline-create"
+            className="tree-create-form"
             style={{ paddingLeft: `${24 + (node.level + 1) * 14}px` }}
           >
-            <input
-              type="text"
-              autoFocus
-              placeholder="Nome da subpasta..."
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onBlur={() => !newFolderName.trim() && setCreatingForParentId(undefined)}
-              className="folder-inline-input"
-            />
+            <div className="tree-create-row">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Nome da subpasta..."
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                className="folder-inline-input"
+              />
+              <button type="submit" className="tree-btn-confirm" title="Criar">
+                <Check size={13} />
+              </button>
+              <button
+                type="button"
+                className="tree-btn-cancel"
+                onClick={() => setCreatingForParentId(undefined)}
+                title="Cancelar"
+              >
+                <X size={13} />
+              </button>
+            </div>
           </form>
         )}
 
@@ -215,16 +316,28 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
       {/* Inline Root Folder Creation */}
       {creatingForParentId === null && (
-        <form onSubmit={handleConfirmCreate} className="folder-inline-create" style={{ paddingLeft: '12px' }}>
-          <input
-            type="text"
-            autoFocus
-            placeholder="Nome da nova pasta..."
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            onBlur={() => !newFolderName.trim() && setCreatingForParentId(undefined)}
-            className="folder-inline-input"
-          />
+        <form onSubmit={handleConfirmCreate} className="tree-create-form" style={{ paddingLeft: '8px' }}>
+          <div className="tree-create-row">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Nome da nova pasta..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              className="folder-inline-input"
+            />
+            <button type="submit" className="tree-btn-confirm" title="Criar">
+              <Check size={13} />
+            </button>
+            <button
+              type="button"
+              className="tree-btn-cancel"
+              onClick={() => setCreatingForParentId(undefined)}
+              title="Cancelar"
+            >
+              <X size={13} />
+            </button>
+          </div>
         </form>
       )}
 

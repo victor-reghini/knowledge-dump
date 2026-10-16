@@ -34,7 +34,13 @@ export interface Category {
   name: string;
   color: string;
   icon: string;
+  parent_id?: string | null;
   created_at: string;
+}
+
+export interface CategoryTreeNode extends Category {
+  children: CategoryTreeNode[];
+  level: number;
 }
 
 export interface Tag {

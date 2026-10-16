@@ -189,7 +189,7 @@ server.get('/api/public/notes/:token', async (request, reply) => {
 
 // --- CORE SYSTEM ROUTES ---
 
-// Categories
+// Categories (Hierárquicas e com edição/exclusão)
 server.get('/api/categories', async (request) => {
   const userId = getUserId(request);
   return db.prepare('SELECT * FROM categories WHERE user_id = ? OR user_id IS NULL ORDER BY name ASC').all(userId);
@@ -197,16 +197,52 @@ server.get('/api/categories', async (request) => {
 
 server.post('/api/categories', async (request) => {
   const userId = getUserId(request);
-  const body = request.body as { name: string; color?: string; icon?: string };
+  const body = request.body as { name: string; color?: string; icon?: string; parent_id?: string | null };
   const id = `cat-${Date.now()}`;
-  db.prepare('INSERT INTO categories (id, user_id, name, color, icon) VALUES (?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO categories (id, user_id, name, color, icon, parent_id) VALUES (?, ?, ?, ?, ?, ?)').run(
     id,
     userId,
     body.name,
     body.color || '#eab308',
-    body.icon || 'folder'
+    body.icon || 'folder',
+    body.parent_id || null
   );
   return { id, user_id: userId, ...body };
+});
+
+server.put('/api/categories/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as { name?: string; color?: string; icon?: string; parent_id?: string | null };
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as {
+    id: string;
+    name: string;
+    color: string;
+    icon: string;
+    parent_id: string | null;
+  } | undefined;
+  if (!existing) return reply.status(404).send({ error: 'Categoria não encontrada' });
+
+  const name = body.name !== undefined ? body.name : existing.name;
+  const color = body.color !== undefined ? body.color : existing.color;
+  const icon = body.icon !== undefined ? body.icon : existing.icon;
+  const parent_id = body.parent_id !== undefined ? body.parent_id : existing.parent_id;
+
+  db.prepare('UPDATE categories SET name = ?, color = ?, icon = ?, parent_id = ? WHERE id = ?').run(
+    name,
+    color,
+    icon,
+    parent_id,
+    id
+  );
+  return { ...existing, name, color, icon, parent_id };
+});
+
+server.delete('/api/categories/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('UPDATE notes SET category_id = NULL WHERE category_id = ?').run(id);
+  db.prepare('UPDATE categories SET parent_id = NULL WHERE parent_id = ?').run(id);
+  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  return { success: true, id };
 });
 
 // Folders (RF-04: Árvore hierárquica e subpastas)
