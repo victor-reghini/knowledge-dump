@@ -240,11 +240,20 @@ gantt
   - Generalização do parser de badges de deep-link em [`NoteEditor.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/NoteEditor.tsx) para saltar diretamente para páginas de PDF, parágrafos de DOCX, linhas de LaTeX ou timestamps de vídeo/áudio.
   - Suíte de testes automatizados [`tests/atividade-2.3.test.ts`](file:///home/npd/Downloads/projects/knowledge-dump/tests/atividade-2.3.test.ts) cobrindo todos os cenários.
 
-#### Atividade 2.4: Testes de Carga e Arquivos Volumosos [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `test/2.4-testes-carga-arquivos-volumosos`
+#### Atividade 2.4: Testes de Carga e Arquivos Volumosos [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `test/2.4-testes-carga-arquivos-volumosos`
 - **Responsável:** `agent-testing`
 - **Descrição:** Validar performance de indexação e leitura de arquivos pesados (PDFs de 100MB+) dentro do container.
+- **Entregas Realizadas:**
+  - Implementação de streaming com suporte completo a requisições parciais HTTP Byte-Range (RFC 7233) em [`server/index.ts`](file:///home/npd/Downloads/projects/knowledge-dump/server/index.ts) (`Accept-Ranges: bytes`, status 206 Partial Content e status 416 Range Not Satisfiable), permitindo carregamento sob demanda de blocos de páginas em documentos PDF e mídias sem download integral prévio.
+  - Otimização do upload multipart em [`server/index.ts`](file:///home/npd/Downloads/projects/knowledge-dump/server/index.ts) utilizando streaming direto para disco via `stream/promises.pipeline`, garantindo consumo de memória O(1) e protegendo contra estouro de heap V8 em arquivos de 150MB+ (RNF-03).
+  - Otimização assíncrona do loop de busca em documentos PDF em [`src/components/PdfViewer.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/PdfViewer.tsx), com liberação periódica do event loop a cada 8 páginas e teto de resultados para evitar congelamento da UI em livros extensos.
+  - Suíte de testes automatizados de carga e estresse em [`tests/atividade-2.4.test.ts`](file:///home/npd/Downloads/projects/knowledge-dump/tests/atividade-2.4.test.ts), validando:
+    1. Streaming parcial via Range requests com arquivo esparso de 105MB (110.100.480 bytes) com marcadores binários no início, meio (50MB) e trailer EOF final.
+    2. Tempo de resposta de I/O inferior a 25ms para leitura de páginas aleatórias de 64KB e variação de memória heap controlada (< 15MB).
+    3. Inserção em lote de 1.000 notas acadêmicas com índice FTS5 ativo e busca concorrente com latência < 50ms (atendendo ao RNF-01).
+    4. Integridade de catálogo e URLs de streaming sem alocação desnecessária de texto em memória.
 
 ---
 

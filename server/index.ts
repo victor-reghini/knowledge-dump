@@ -5,6 +5,7 @@ import multipart from '@fastify/multipart';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
 import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
 import { parseDocxFile } from './docx.js';
 
@@ -605,7 +606,7 @@ function getMimeType(filePath: string, fileType: string): string {
   }
 }
 
-// Serve Reference Stream (PDF, DOCX, Video, Audio, Imagem, etc.)
+// Serve Reference Stream (PDF, DOCX, Video, Audio, Imagem, etc.) with HTTP Range Support (RFC 7233)
 server.get('/api/references/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
   const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { file_path: string; title: string; file_type: string } | undefined;
@@ -617,12 +618,63 @@ server.get('/api/references/:id/file', async (request, reply) => {
   }
 
   const stat = fs.statSync(fullPath);
+  const totalSize = stat.size;
   const mimeType = getMimeType(fullPath, ref.file_type);
   const ext = path.extname(fullPath) || `.${ref.file_type}`;
+  const rangeHeader = request.headers.range;
+
+  reply.header('Accept-Ranges', 'bytes');
+
+  if (!rangeHeader) {
+    reply.header('Content-Type', mimeType);
+    reply.header('Content-Length', totalSize);
+    reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(ref.title)}${ext}"`);
+    return reply.send(fs.createReadStream(fullPath));
+  }
+
+  const sendRangeError = () => {
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Range', `bytes */${totalSize}`);
+    return reply.status(416).send({ error: 'Faixa de bytes não satisfatória (Range Not Satisfiable)' });
+  };
+
+  // Parse Range header: e.g. "bytes=0-1023", "bytes=1048576-", "bytes=-1024"
+  const rangeMatch = rangeHeader.trim().match(/^bytes=(\d*)-(\d*)$/);
+  if (!rangeMatch) {
+    return sendRangeError();
+  }
+
+  let start: number;
+  let end: number;
+  const rawStart = rangeMatch[1];
+  const rawEnd = rangeMatch[2];
+
+  if (rawStart === '' && rawEnd === '') {
+    return sendRangeError();
+  } else if (rawStart === '') {
+    // Suffix range: bytes=-500 (last 500 bytes)
+    const suffix = parseInt(rawEnd, 10);
+    if (suffix <= 0) {
+      return sendRangeError();
+    }
+    start = Math.max(0, totalSize - suffix);
+    end = totalSize - 1;
+  } else {
+    start = parseInt(rawStart, 10);
+    end = rawEnd === '' ? totalSize - 1 : parseInt(rawEnd, 10);
+  }
+
+  if (start >= totalSize || end >= totalSize || start > end || start < 0) {
+    return sendRangeError();
+  }
+
+  const chunkSize = end - start + 1;
+  reply.status(206);
   reply.header('Content-Type', mimeType);
-  reply.header('Content-Length', stat.size);
+  reply.header('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+  reply.header('Content-Length', chunkSize);
   reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(ref.title)}${ext}"`);
-  return reply.send(fs.createReadStream(fullPath));
+  return reply.send(fs.createReadStream(fullPath, { start, end }));
 });
 
 // Get Reference Formatted Content (DOCX, TeX, HTML, Markdown)
@@ -676,12 +728,12 @@ server.post('/api/references', async (request, reply) => {
     if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
     const filename = `${Date.now()}-${data.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const targetPath = path.join(REFS_DIR, filename);
-    await fs.promises.writeFile(targetPath, await data.toBuffer());
+    await pipeline(data.file, fs.createWriteStream(targetPath));
 
-    const fields = data.fields as Record<string, { value: string }>;
+    const fields = (data.fields || {}) as Record<string, any>;
     const title = fields.title?.value || data.filename.replace(/\.[^.]+$/, '');
     const authors = fields.authors?.value || '';
-    const year = fields.year ? parseInt(fields.year.value, 10) : new Date().getFullYear();
+    const year = fields.year?.value ? parseInt(fields.year.value, 10) : new Date().getFullYear();
     const fileType = detectFileType(data.filename);
     const id = `ref-${Date.now()}`;
 
@@ -829,10 +881,14 @@ if (fs.existsSync(CLIENT_DIST)) {
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
-try {
-  await server.listen({ port: PORT, host: HOST });
-  console.log(`Knowledge Dump API Server rodando em http://${HOST}:${PORT}`);
-} catch (err) {
-  server.log.error(err);
-  process.exit(1);
+if (process.env.NODE_ENV !== 'test') {
+  try {
+    await server.listen({ port: PORT, host: HOST });
+    console.log(`Knowledge Dump API Server rodando em http://${HOST}:${PORT}`);
+  } catch (err) {
+    server.log.error(err);
+    process.exit(1);
+  }
 }
+
+export { server };

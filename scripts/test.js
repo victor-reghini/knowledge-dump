@@ -37,6 +37,7 @@ function resolveNode22Env() {
 }
 
 const childEnv = resolveNode22Env();
+childEnv.NODE_ENV = 'test';
 
 const testProcess = spawn('npx', ['tsx', '--test', '--test-concurrency=1', 'tests/**/*.test.ts'], {
   stdio: 'inherit',

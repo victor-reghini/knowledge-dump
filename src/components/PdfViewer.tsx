@@ -245,6 +245,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
     try {
       for (let i = 1; i <= pdfDoc.numPages; i++) {
+        // Yield to event loop every 8 pages to avoid freezing the UI on heavy documents (RNF-03)
+        if (i % 8 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
         const page = await pdfDoc.getPage(i);
         const content = await page.getTextContent();
         const fullPageText = content.items
@@ -252,6 +256,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           .join(' ');
         if (fullPageText.toLowerCase().includes(q)) {
           results.push({ page: i, text: fullPageText.slice(0, 100) });
+          if (results.length >= 100) break; // Limite de proteção de memória
         }
       }
       setSearchResults(results);
