@@ -13,6 +13,15 @@ e este projeto adere ao [Versionamento Semântico (SemVer)](https://semver.org/l
 - **Atividade 1.4 (Visualizador PDF com Deep-Link):** Integração do PDF.js em modo Split-View (painel duplo) com ferramenta de seleção de texto que gera citações na nota ativa vinculadas à página e coordenadas exatas (RF-14, RF-19, RF-20, RF-21).
 - **Atividade 1.5 (Homologação de Aceite do MVP):** Bateria de testes E2E e validação dos Cenários BDD 1 e 2 no ambiente Docker.
 
+## [1.1.1] - 2026-10-16
+
+### Corrigido
+- **Resolução de Erros de Proxy e Inicialização do Backend Local:**
+  - Diagnóstico e correção do erro de recusa de conexão (`ECONNREFUSED 127.0.0.1:3001`) gerado pelo proxy do Vite quando o backend não conseguia iniciar no ambiente local.
+  - Adicionado `.nvmrc` com versão Node 22 e atualização de `scripts/dev.js` para detectar automaticamente instalações do Node 22 no NVM e injetar as flags necessárias (`--experimental-sqlite`).
+  - Tratamento resiliente em `server/db.ts` para tabelas virtuais FTS5 com fallback transparente para buscas `LIKE` caso o binário local do SQLite não possua a extensão compilada.
+  - Ajuste no Vite proxy para direcionamento explícito em `127.0.0.1:3001` (prevenindo conflitos de resolução IPv6) e captura de erros de transporte sem poluição do terminal.
+
 ---
 
 ## [1.1.0] - 2026-10-16

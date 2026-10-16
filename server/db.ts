@@ -12,6 +12,7 @@ if (!fs.existsSync(DATA_DIR)) {
 const DB_PATH = path.join(DATA_DIR, 'knowledge.db');
 
 export const db = new DatabaseSync(DB_PATH);
+export let hasFts5 = false;
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -116,13 +117,22 @@ export function initDatabase() {
       anchor_data TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-
-    CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-      note_id UNINDEXED,
-      title,
-      content
-    );
   `);
+
+  // FTS5 Initialization (com fallback resiliente caso o SQLite do ambiente não possua FTS5)
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+        note_id UNINDEXED,
+        title,
+        content
+      );
+    `);
+    hasFts5 = true;
+  } catch (err: unknown) {
+    hasFts5 = false;
+    console.warn('[DB] SQLite FTS5 não suportado ou desabilitado nesta compilação. Fallback para busca LIKE ativo.');
+  }
 
   // Migrations for existing databases
   try { db.exec("ALTER TABLE notes ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
@@ -222,9 +232,13 @@ Ver também: [[Redes Neurais Artificiais]]`;
   db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)').run(noteId1, tagId);
   db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)').run(noteId2, tagId);
 
-  // Index into FTS5
-  db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(noteId1, title1, content1);
-  db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(noteId2, title2, content2);
+  // Index into FTS5 if available
+  if (hasFts5) {
+    try {
+      db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(noteId1, title1, content1);
+      db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(noteId2, title2, content2);
+    } catch {}
+  }
 
   // Seed a sample bookmark
   db.prepare(`
