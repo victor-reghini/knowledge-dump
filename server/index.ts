@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
-import { parseDocxFile } from './docx.js';
+import { parseDocxFile, saveDocxFile } from './docx.js';
+import { parsePptxFile } from './pptx.js';
 
 initDatabase();
 
@@ -596,6 +597,8 @@ function detectFileType(filename: string): string {
   if (['tex', 'latex'].includes(ext)) return 'tex';
   if (['html', 'htm'].includes(ext)) return 'html';
   if (['md', 'markdown'].includes(ext)) return 'md';
+  if (['txt', 'text'].includes(ext)) return 'txt';
+  if (['pptx', 'ppt', 'pps', 'ppsx', 'odp'].includes(ext)) return 'pptx';
   if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext)) return 'audio';
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
@@ -608,7 +611,10 @@ function getMimeType(filePath: string, fileType: string): string {
     case '.pdf': return 'application/pdf';
     case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     case '.doc': return 'application/msword';
+    case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case '.ppt': return 'application/vnd.ms-powerpoint';
     case '.tex': return 'text/plain; charset=utf-8';
+    case '.txt': return 'text/plain; charset=utf-8';
     case '.html':
     case '.htm': return 'text/html; charset=utf-8';
     case '.md': return 'text/markdown; charset=utf-8';
@@ -625,7 +631,9 @@ function getMimeType(filePath: string, fileType: string): string {
     default:
       if (fileType === 'pdf') return 'application/pdf';
       if (fileType === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      if (fileType === 'tex') return 'text/plain; charset=utf-8';
+      if (fileType === 'pptx') return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      if (fileType === 'tex' || fileType === 'txt') return 'text/plain; charset=utf-8';
+      if (fileType === 'md') return 'text/markdown; charset=utf-8';
       if (fileType === 'video') return 'video/mp4';
       if (fileType === 'audio') return 'audio/mpeg';
       if (fileType === 'image') return 'image/png';
@@ -704,7 +712,7 @@ server.get('/api/references/:id/file', async (request, reply) => {
   return reply.send(fs.createReadStream(fullPath, { start, end }));
 });
 
-// Get Reference Formatted Content (DOCX, TeX, HTML, Markdown)
+// Get Reference Formatted Content (DOCX, TeX, PPTX, HTML, Markdown, Plain Text)
 server.get('/api/references/:id/content', async (request, reply) => {
   const { id } = request.params as { id: string };
   const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { id: string; file_path: string; title: string; file_type: string } | undefined;
@@ -729,7 +737,21 @@ server.get('/api/references/:id/content', async (request, reply) => {
     }
   }
 
-  if (['tex', 'latex', 'md', 'markdown', 'html', 'htm'].includes(ref.file_type) || /\.(tex|md|html|htm|txt)$/i.test(fullPath)) {
+  if (ref.file_type === 'pptx' || fullPath.endsWith('.pptx') || fullPath.endsWith('.ppt')) {
+    try {
+      const pptxData = parsePptxFile(fullPath);
+      return {
+        id: ref.id,
+        title: ref.title,
+        file_type: 'pptx',
+        ...pptxData
+      };
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Erro ao analisar PowerPoint: ${err.message}` });
+    }
+  }
+
+  if (['tex', 'latex', 'md', 'markdown', 'html', 'htm', 'txt', 'text'].includes(ref.file_type) || /\.(tex|md|html|htm|txt)$/i.test(fullPath)) {
     const text = fs.readFileSync(fullPath, 'utf8');
     return {
       id: ref.id,
@@ -745,6 +767,49 @@ server.get('/api/references/:id/content', async (request, reply) => {
     file_type: ref.file_type,
     file_url: `/api/references/${ref.id}/file`
   };
+});
+
+// Update Reference Content (Edição de texto no disco para TXT, MD, DOCX, TEX, HTML)
+server.put('/api/references/:id/content', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { text } = (request.body as { text?: string }) || {};
+
+  if (typeof text !== 'string') {
+    return reply.status(400).send({ error: 'Campo "text" obrigatório para atualizar o conteúdo' });
+  }
+
+  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { id: string; file_path: string; title: string; file_type: string } | undefined;
+  if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
+
+  const fullPath = path.isAbsolute(ref.file_path) ? ref.file_path : path.join(DATA_DIR, ref.file_path);
+  if (!fs.existsSync(fullPath)) {
+    return reply.status(404).send({ error: 'Arquivo da referência não encontrado no disco' });
+  }
+
+  const isDocx = ref.file_type === 'docx' || fullPath.endsWith('.docx') || fullPath.endsWith('.doc');
+  const isText = ['txt', 'text', 'md', 'markdown', 'tex', 'latex', 'html', 'htm'].includes(ref.file_type) || /\.(txt|md|tex|html|htm)$/i.test(fullPath);
+
+  if (!isDocx && !isText) {
+    return reply.status(400).send({ error: 'O formato deste arquivo não permite edição direta de texto' });
+  }
+
+  try {
+    if (isDocx) {
+      saveDocxFile(fullPath, text);
+    } else {
+      fs.writeFileSync(fullPath, text, 'utf8');
+    }
+
+    return {
+      success: true,
+      id: ref.id,
+      title: ref.title,
+      file_type: ref.file_type,
+      updated_at: new Date().toISOString()
+    };
+  } catch (err: any) {
+    return reply.status(500).send({ error: `Erro ao salvar alterações no arquivo: ${err.message}` });
+  }
 });
 
 // Upload / Create Reference

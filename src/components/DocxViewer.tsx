@@ -9,7 +9,12 @@ import {
   X,
   FileText,
   BookmarkCheck,
-  RotateCcw
+  RotateCcw,
+  Edit3,
+  Eye,
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface DocxParagraph {
@@ -43,6 +48,11 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 }) => {
   const [paragraphs, setParagraphs] = useState<DocxParagraph[]>([]);
   const [docTitle, setDocTitle] = useState<string>(reference.title);
+  const [rawText, setRawText] = useState<string>('');
+  const [originalRawText, setOriginalRawText] = useState<string>('');
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +71,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const isDirty = rawText !== originalRawText;
+
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -72,7 +84,12 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         if (data.paragraphs && Array.isArray(data.paragraphs)) {
           setParagraphs(data.paragraphs);
           if (data.title) setDocTitle(data.title);
+          const txt = data.text || data.paragraphs.map((p: any) => p.text).join('\n\n');
+          setRawText(txt);
+          setOriginalRawText(txt);
         } else if (data.text) {
+          setRawText(data.text);
+          setOriginalRawText(data.text);
           const lines = data.text.split('\n\n').filter(Boolean);
           setParagraphs(
             lines.map((t: string, i: number) => ({
@@ -165,6 +182,25 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     }, 1200);
   };
 
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveStatus(null);
+    try {
+      await api.updateReferenceContent(reference.id, { text: rawText });
+      setOriginalRawText(rawText);
+      setSaveStatus('Alterações salvas com sucesso no arquivo Word!');
+      const refreshed = await api.getReferenceContent(reference.id);
+      if (refreshed.paragraphs && Array.isArray(refreshed.paragraphs)) {
+        setParagraphs(refreshed.paragraphs);
+      }
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err: any) {
+      setSaveStatus(`Erro ao salvar: ${err.message || 'Falha na requisição'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Filtered paragraphs if searching
   const filteredParagraphs = searchQuery.trim()
     ? paragraphs.filter((p) => p.text.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -182,9 +218,66 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           <span className="badge" style={{ fontSize: '0.68rem', backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid #3b82f6' }}>
             DOCX
           </span>
+          {isDirty && (
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.66rem',
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                color: '#f59e0b',
+                border: '1px solid #f59e0b'
+              }}
+            >
+              Não salvo
+            </span>
+          )}
         </div>
 
         <div className="pdf-toolbar-group">
+          {/* Mode Switch (Rendered vs Edit) */}
+          <div className="btn-group" style={{ display: 'flex', gap: 2 }}>
+            <button
+              className={`toolbar-btn ${!isEditing ? 'active' : ''}`}
+              onClick={() => setIsEditing(false)}
+              title="Visualização Formatada"
+            >
+              <Eye size={15} />
+            </button>
+            <button
+              className={`toolbar-btn ${isEditing ? 'active' : ''}`}
+              onClick={() => setIsEditing(true)}
+              title="Editar Documento"
+            >
+              <Edit3 size={15} />
+            </button>
+          </div>
+
+          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+          {/* Salvar Botão */}
+          <button
+            className="toolbar-btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              backgroundColor: isDirty ? 'var(--accent-primary)' : 'transparent',
+              color: isDirty ? '#ffffff' : 'inherit',
+              borderRadius: 4
+            }}
+            onClick={handleSave}
+            disabled={saving}
+            title="Salvar alterações no arquivo Word"
+          >
+            <Save size={14} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </span>
+          </button>
+
+          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
           {/* Zoom controls */}
           <button
             className="toolbar-btn"
@@ -230,6 +323,25 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Save Notification Banner */}
+      {saveStatus && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 14px',
+            backgroundColor: saveStatus.startsWith('Erro') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+            borderBottom: `1px solid ${saveStatus.startsWith('Erro') ? '#ef4444' : '#10b981'}`,
+            color: saveStatus.startsWith('Erro') ? '#ef4444' : '#10b981',
+            fontSize: '0.8rem'
+          }}
+        >
+          {saveStatus.startsWith('Erro') ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
+          <span>{saveStatus}</span>
+        </div>
+      )}
 
       {/* Search Bar */}
       {isSearchOpen && (
@@ -298,6 +410,52 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         ) : error ? (
           <div className="empty-state" style={{ color: 'var(--accent-red)' }}>
             <p>{error}</p>
+          </div>
+        ) : isEditing ? (
+          <div
+            style={{
+              maxWidth: 820,
+              margin: '0 auto',
+              backgroundColor: 'var(--bg-primary)',
+              borderRadius: 6,
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 4px 18px rgba(0, 0, 0, 0.08)',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border-color)',
+                fontSize: '0.76rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                justifyContent: 'space-between'
+              }}
+            >
+              <span>Edição direta de texto do documento Word (.docx)</span>
+              <span>{isDirty ? 'Modificado (Não salvo)' : 'Sem alterações'}</span>
+            </div>
+            <textarea
+              className="form-textarea"
+              style={{
+                width: '100%',
+                minHeight: 520,
+                padding: '20px',
+                fontFamily: 'inherit',
+                fontSize: `${zoom}%`,
+                lineHeight: 1.7,
+                border: 'none',
+                outline: 'none',
+                resize: 'vertical',
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)'
+              }}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder="Digite o conteúdo do documento Word..."
+            />
           </div>
         ) : paragraphs.length === 0 ? (
           <div className="empty-state">

@@ -197,3 +197,134 @@ export function parseDocxFile(filePath: string): DocxContent {
   const buffer = fs.readFileSync(filePath);
   return parseDocxBuffer(buffer);
 }
+
+/**
+ * Empacota entradas de arquivo em um buffer ZIP válido usando node:zlib
+ */
+export function packZipEntries(entries: Record<string, Buffer>): Buffer {
+  const localChunks: Buffer[] = [];
+  const cdChunks: Buffer[] = [];
+  let offset = 0;
+
+  for (const [name, data] of Object.entries(entries)) {
+    const nameBuf = Buffer.from(name, 'utf8');
+    const crc = (zlib as any).crc32 ? (zlib as any).crc32(data) : 0;
+    const compressed = zlib.deflateRawSync(data);
+    const compSize = compressed.length;
+    const uncompSize = data.length;
+
+    // Local file header (30 bytes + nameBuf.length)
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(8, 8); // Deflate
+    localHeader.writeUInt16LE(0, 10);
+    localHeader.writeUInt16LE(0, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(compSize, 18);
+    localHeader.writeUInt32LE(uncompSize, 22);
+    localHeader.writeUInt16LE(nameBuf.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+
+    localChunks.push(localHeader, nameBuf, compressed);
+
+    // Central directory header (46 bytes + nameBuf.length)
+    const cdHeader = Buffer.alloc(46);
+    cdHeader.writeUInt32LE(0x02014b50, 0);
+    cdHeader.writeUInt16LE(20, 4);
+    cdHeader.writeUInt16LE(20, 6);
+    cdHeader.writeUInt16LE(0, 8);
+    cdHeader.writeUInt16LE(8, 10);
+    cdHeader.writeUInt16LE(0, 12);
+    cdHeader.writeUInt16LE(0, 14);
+    cdHeader.writeUInt32LE(crc, 16);
+    cdHeader.writeUInt32LE(compSize, 20);
+    cdHeader.writeUInt32LE(uncompSize, 24);
+    cdHeader.writeUInt16LE(nameBuf.length, 28);
+    cdHeader.writeUInt16LE(0, 30);
+    cdHeader.writeUInt16LE(0, 32);
+    cdHeader.writeUInt16LE(0, 34);
+    cdHeader.writeUInt16LE(0, 36);
+    cdHeader.writeUInt32LE(0, 38);
+    cdHeader.writeUInt32LE(offset, 42);
+
+    cdChunks.push(cdHeader, nameBuf);
+
+    offset += 30 + nameBuf.length + compSize;
+  }
+
+  const cdOffset = offset;
+  const cdTotalSize = cdChunks.reduce((acc, c) => acc + c.length, 0);
+  const entryCount = Object.keys(entries).length;
+
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entryCount, 8);
+  eocd.writeUInt16LE(entryCount, 10);
+  eocd.writeUInt32LE(cdTotalSize, 12);
+  eocd.writeUInt32LE(cdOffset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localChunks, ...cdChunks, eocd]);
+}
+
+/**
+ * Salva texto editado de volta no arquivo DOCX
+ */
+export function saveDocxFile(filePath: string, updatedText: string): void {
+  let entries: Record<string, Buffer> = {};
+  if (fs.existsSync(filePath)) {
+    try {
+      const existingBuf = fs.readFileSync(filePath);
+      entries = extractZipEntries(existingBuf);
+    } catch {}
+  }
+
+  // Se não possuir estrutura básica de DOCX, inicializa arquivos obrigatórios
+  if (!entries['[Content_Types].xml']) {
+    entries['[Content_Types].xml'] = Buffer.from(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n' +
+      '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
+      '  <Default Extension="xml" ContentType="application/xml"/>\n' +
+      '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\n' +
+      '</Types>',
+      'utf8'
+    );
+  }
+
+  if (!entries['_rels/.rels']) {
+    entries['_rels/.rels'] = Buffer.from(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+      '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\n' +
+      '</Relationships>',
+      'utf8'
+    );
+  }
+
+  // Gera o XML de parágrafos
+  const paragraphs = updatedText.split(/\n\s*\n/).filter((p) => p.trim());
+  const paragraphsXml = paragraphs
+    .map((p) => {
+      const clean = escapeHtml(p.trim());
+      return `<w:p><w:r><w:t xml:space="preserve">${clean}</w:t></w:r></w:p>`;
+    })
+    .join('\n    ');
+
+  const newDocXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n' +
+    '  <w:body>\n' +
+    `    ${paragraphsXml || '<w:p><w:r><w:t></w:t></w:r></w:p>'}\n` +
+    '  </w:body>\n' +
+    '</w:document>';
+
+  entries['word/document.xml'] = Buffer.from(newDocXml, 'utf8');
+
+  const packedBuffer = packZipEntries(entries);
+  fs.writeFileSync(filePath, packedBuffer);
+}

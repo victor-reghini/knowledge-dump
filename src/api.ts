@@ -269,6 +269,19 @@ export const api = {
     return res.json();
   },
 
+  async updateReferenceContent(id: string, data: { text: string }): Promise<{ success: boolean; id: string; file_type: string }> {
+    const res = await fetch(`${BASE_URL}/references/${id}/content`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha ao salvar conteúdo da referência');
+    }
+    return res.json();
+  },
+
   async createReference(data: FormData | { title: string; authors?: string; year?: number; doi?: string; file_base64?: string; filename?: string }): Promise<ReferenceFile> {
     const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     const res = await fetch(`${BASE_URL}/references`, {
