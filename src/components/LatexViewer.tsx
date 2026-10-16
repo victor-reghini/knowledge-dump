@@ -12,7 +12,10 @@ import {
   BookmarkCheck,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface LatexViewerProps {
@@ -39,10 +42,14 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
   onClose
 }) => {
   const [sourceCode, setSourceCode] = useState<string>('');
+  const [originalCode, setOriginalCode] = useState<string>('');
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
+  const [sourceTab, setSourceTab] = useState<'editor' | 'lines'>('editor');
   const [zoom, setZoom] = useState<number>(100);
 
   // Search
@@ -58,6 +65,8 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sourceRef = useRef<HTMLDivElement | null>(null);
 
+  const isDirty = sourceCode !== originalCode;
+
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -66,7 +75,9 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
     api.getReferenceContent(reference.id)
       .then((data) => {
         if (!isMounted) return;
-        setSourceCode(data.text || '');
+        const code = data.text || '';
+        setSourceCode(code);
+        setOriginalCode(code);
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -256,6 +267,21 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
   const renderedHtml = parseLatexToHtml(sourceCode);
   const sourceLines = sourceCode.split('\n');
 
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveStatus(null);
+    try {
+      await api.updateReferenceContent(reference.id, { text: sourceCode });
+      setOriginalCode(sourceCode);
+      setSaveStatus('Alterações salvas com sucesso no arquivo TeX!');
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err: any) {
+      setSaveStatus(`Erro ao salvar: ${err.message || 'Falha na requisição'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="pdf-viewer-container" ref={containerRef} onMouseUp={handleMouseUp}>
       {/* Top Toolbar */}
@@ -268,6 +294,19 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
           <span className="badge" style={{ fontSize: '0.68rem', backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', border: '1px solid #a855f7' }}>
             LaTeX (.tex)
           </span>
+          {isDirty && (
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.66rem',
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                color: '#f59e0b',
+                border: '1px solid #f59e0b'
+              }}
+            >
+              Não salvo
+            </span>
+          )}
         </div>
 
         <div className="pdf-toolbar-group">
@@ -285,11 +324,11 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
             <button
               className={`toolbar-btn ${viewMode === 'source' ? 'active' : ''}`}
               onClick={() => setViewMode('source')}
-              title="Código-Fonte TeX"
+              title="Editor / Código TeX"
               style={{ padding: '3px 8px', fontSize: '0.75rem', gap: 4 }}
             >
               <Code size={13} />
-              <span>Fonte</span>
+              <span>Editor TeX</span>
             </button>
             <button
               className={`toolbar-btn ${viewMode === 'split' ? 'active' : ''}`}
@@ -301,6 +340,32 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
               <span>Lado a Lado</span>
             </button>
           </div>
+
+          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+          {/* Salvar Botão */}
+          <button
+            className="toolbar-btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              backgroundColor: isDirty ? 'var(--accent-primary)' : 'transparent',
+              color: isDirty ? '#ffffff' : 'inherit',
+              borderRadius: 4
+            }}
+            onClick={handleSave}
+            disabled={saving}
+            title="Salvar alterações no arquivo TeX"
+          >
+            <Save size={14} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </span>
+          </button>
+
+          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
 
           {/* Zoom controls */}
           <button
@@ -347,6 +412,25 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Save Notification Banner */}
+      {saveStatus && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 14px',
+            backgroundColor: saveStatus.startsWith('Erro') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+            borderBottom: `1px solid ${saveStatus.startsWith('Erro') ? '#ef4444' : '#10b981'}`,
+            color: saveStatus.startsWith('Erro') ? '#ef4444' : '#10b981',
+            fontSize: '0.8rem'
+          }}
+        >
+          {saveStatus.startsWith('Erro') ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
+          <span>{saveStatus}</span>
+        </div>
+      )}
 
       {/* Search Bar */}
       {isSearchOpen && (
@@ -442,52 +526,116 @@ export const LatexViewer: React.FC<LatexViewerProps> = ({
             {/* Source Code Mode */}
             {(viewMode === 'source' || viewMode === 'split') && (
               <div
-                ref={sourceRef}
-                className="latex-source-code"
                 style={{
                   flex: 1,
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  backgroundColor: 'var(--bg-primary)',
                   borderRadius: 6,
-                  padding: '16px 20px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.84rem',
-                  lineHeight: 1.6,
-                  overflowX: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.08)',
+                  overflow: 'hidden'
                 }}
               >
-                {sourceLines.map((line, idx) => {
-                  const lineNum = idx + 1;
-                  const isMatch = searchQuery && line.toLowerCase().includes(searchQuery.toLowerCase());
-                  return (
-                    <div
-                      key={lineNum}
-                      data-line={lineNum}
-                      className={`tex-line ${isMatch ? 'docx-search-match' : ''}`}
-                      style={{
-                        display: 'flex',
-                        gap: 12,
-                        padding: '1px 4px',
-                        borderRadius: 3
-                      }}
+                <div
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderBottom: '1px solid var(--border-color)',
+                    fontSize: '0.76rem',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      className={`toolbar-btn ${sourceTab === 'editor' ? 'active' : ''}`}
+                      onClick={() => setSourceTab('editor')}
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
                     >
-                      <span
-                        style={{
-                          width: 32,
-                          textAlign: 'right',
-                          color: 'var(--text-muted)',
-                          userSelect: 'none',
-                          fontSize: '0.78rem'
-                        }}
-                      >
-                        {lineNum}
-                      </span>
-                      <span style={{ flex: 1 }}>{line || ' '}</span>
-                    </div>
-                  );
-                })}
+                      Editar TeX
+                    </button>
+                    <button
+                      className={`toolbar-btn ${sourceTab === 'lines' ? 'active' : ''}`}
+                      onClick={() => setSourceTab('lines')}
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                    >
+                      Linhas ({sourceLines.length})
+                    </button>
+                  </div>
+                  <span>{isDirty ? 'Modificado (Não salvo)' : 'Sem alterações'}</span>
+                </div>
+
+                {sourceTab === 'editor' ? (
+                  <textarea
+                    className="form-textarea"
+                    style={{
+                      flex: 1,
+                      minHeight: 520,
+                      padding: '16px',
+                      fontFamily: 'monospace',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.6,
+                      border: 'none',
+                      outline: 'none',
+                      resize: 'vertical',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)'
+                    }}
+                    value={sourceCode}
+                    onChange={(e) => setSourceCode(e.target.value)}
+                    placeholder="Digite ou edite código LaTeX..."
+                  />
+                ) : (
+                  <div
+                    ref={sourceRef}
+                    className="latex-source-code"
+                    style={{
+                      flex: 1,
+                      backgroundColor: 'var(--bg-secondary)',
+                      padding: '16px 20px',
+                      fontFamily: 'monospace',
+                      fontSize: '0.84rem',
+                      lineHeight: 1.6,
+                      overflowX: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {sourceLines.map((line, idx) => {
+                      const lineNum = idx + 1;
+                      const isMatch = searchQuery && line.toLowerCase().includes(searchQuery.toLowerCase());
+                      return (
+                        <div
+                          key={lineNum}
+                          data-line={lineNum}
+                          className={`tex-line ${isMatch ? 'docx-search-match' : ''}`}
+                          style={{
+                            display: 'flex',
+                            gap: 12,
+                            padding: '1px 4px',
+                            borderRadius: 3
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 32,
+                              textAlign: 'right',
+                              color: 'var(--text-muted)',
+                              userSelect: 'none',
+                              fontSize: '0.78rem'
+                            }}
+                          >
+                            {lineNum}
+                          </span>
+                          <span style={{ flex: 1 }}>{line || ' '}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -289,10 +289,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 const linkText = linkMatch[1];
                 const linkUrl = linkMatch[2];
 
-                const isDeepLink = /^(pdf|docx|tex|media):\/\//.test(linkUrl);
+                const isDeepLink = /^(pdf|docx|tex|media|pptx|ppt|txt|md):\/\//.test(linkUrl);
                 if (isDeepLink) {
                   const protocol = linkUrl.split('://')[0];
-                  const clean = linkUrl.replace(/^(pdf|docx|tex|media):\/\//, '');
+                  const clean = linkUrl.replace(/^(pdf|docx|tex|media|pptx|ppt|txt|md):\/\//, '');
                   const [refIdAndQuery] = clean.split('#');
                   const [refId, queryStr] = refIdAndQuery.split('?');
                   const params = new URLSearchParams(queryStr || '');
@@ -309,7 +309,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                     posNumber = parseInt(params.get('p') || '1', 10);
                     pillLabel = `Parágrafo ${posNumber}`;
                     anchorData = `p=${posNumber}`;
-                  } else if (protocol === 'tex') {
+                  } else if (protocol === 'pptx' || protocol === 'ppt') {
+                    posNumber = parseInt(params.get('slide') || '1', 10);
+                    pillLabel = `Slide ${posNumber}`;
+                    anchorData = `slide=${posNumber}`;
+                  } else if (protocol === 'tex' || protocol === 'txt' || protocol === 'md') {
                     posNumber = parseInt(params.get('line') || '1', 10);
                     pillLabel = `Linha ${posNumber}`;
                     anchorData = `line=${posNumber}`;

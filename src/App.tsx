@@ -313,7 +313,10 @@ export const App: React.FC = () => {
       if (anchorData?.startsWith('t=') || type === 'video' || type === 'audio') {
         const secs = anchorData?.startsWith('t=') ? parseInt(anchorData.replace('t=', ''), 10) : pageNumber;
         setInitialTimestamp(secs);
-      } else if (anchorData?.startsWith('line=') || type === 'tex') {
+      } else if (anchorData?.startsWith('slide=') || type === 'pptx') {
+        const slide = anchorData?.startsWith('slide=') ? parseInt(anchorData.replace('slide=', ''), 10) : pageNumber;
+        setPdfInitialPage(slide);
+      } else if (anchorData?.startsWith('line=') || type === 'tex' || type === 'txt' || type === 'md') {
         const line = anchorData?.startsWith('line=') ? parseInt(anchorData.replace('line=', ''), 10) : pageNumber;
         setInitialLine(line);
       } else if (anchorData?.startsWith('p=') || type === 'docx') {
@@ -349,8 +352,13 @@ export const App: React.FC = () => {
       const m = Math.floor(Number(secs) / 60);
       const s = Math.floor(Number(secs) % 60);
       label = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    } else if (citation.anchorData?.startsWith('line=') || type === 'tex') {
-      protocol = 'tex';
+    } else if (citation.anchorData?.startsWith('slide=') || type === 'pptx') {
+      protocol = 'pptx';
+      const slide = citation.anchorData?.replace('slide=', '') || citation.pageNumber;
+      paramStr = `slide=${slide}`;
+      label = `slide ${slide}`;
+    } else if (citation.anchorData?.startsWith('line=') || type === 'tex' || type === 'txt' || type === 'md') {
+      protocol = type === 'tex' ? 'tex' : (type === 'md' ? 'md' : 'txt');
       const line = citation.anchorData?.replace('line=', '') || citation.pageNumber;
       paramStr = `line=${line}`;
       label = `linha ${line}`;

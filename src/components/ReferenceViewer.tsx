@@ -4,6 +4,8 @@ import { PdfViewer } from './PdfViewer';
 import { DocxViewer } from './DocxViewer';
 import { LatexViewer } from './LatexViewer';
 import { MediaViewer } from './MediaViewer';
+import { TextViewer } from './TextViewer';
+import { PptxViewer } from './PptxViewer';
 
 interface ReferenceViewerProps {
   reference: ReferenceFile;
@@ -40,6 +42,37 @@ export const ReferenceViewer: React.FC<ReferenceViewerProps> = ({
       <PdfViewer
         reference={reference}
         initialPage={initialPage}
+        highlightText={highlightText}
+        onCite={onCite}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (type === 'pptx' || type === 'ppt' || /\.(pptx|ppt|pps|ppsx|odp)$/i.test(path)) {
+    return (
+      <PptxViewer
+        reference={reference}
+        initialSlide={initialParagraph || initialLine || initialPage}
+        initialPage={initialPage}
+        highlightText={highlightText}
+        onCite={onCite}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (
+    type === 'txt' ||
+    type === 'text' ||
+    type === 'md' ||
+    type === 'markdown' ||
+    /\.(txt|text|md|markdown)$/i.test(path)
+  ) {
+    return (
+      <TextViewer
+        reference={reference}
+        initialLine={initialLine || (initialPage > 1 ? initialPage : undefined)}
         highlightText={highlightText}
         onCite={onCite}
         onClose={onClose}
@@ -87,11 +120,11 @@ export const ReferenceViewer: React.FC<ReferenceViewerProps> = ({
     );
   }
 
-  // Fallback para outros tipos de arquivo de texto
+  // Fallback para outros tipos de arquivo de texto (TXT / MD / HTML)
   return (
-    <DocxViewer
+    <TextViewer
       reference={reference}
-      initialParagraph={initialParagraph}
+      initialLine={initialLine}
       highlightText={highlightText}
       onCite={onCite}
       onClose={onClose}
