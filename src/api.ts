@@ -261,6 +261,14 @@ export const api = {
     return `${BASE_URL}/references/${id}/file`;
   },
 
+  async getReferenceContent(id: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/references/${id}/content`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Falha ao obter conteúdo da referência');
+    return res.json();
+  },
+
   async createReference(data: FormData | { title: string; authors?: string; year?: number; doi?: string; file_base64?: string; filename?: string }): Promise<ReferenceFile> {
     const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     const res = await fetch(`${BASE_URL}/references`, {

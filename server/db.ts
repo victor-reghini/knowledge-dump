@@ -186,16 +186,38 @@ function ensureSampleReferences(userId: string) {
     VALUES ('folder-modelos-conexionistas', ?, 'Modelos Conexionistas', 'folder-inteligencia-artificial')
   `).run(userId);
 
-  // Ensure sample reference paper exists
+  // Ensure sample reference paper (PDF) exists
   db.prepare(`
     INSERT OR IGNORE INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
     VALUES ('ref-rosenblatt-1958', ?, 'The Perceptron: A Probabilistic Model for Information Storage and Organization in the Brain', 'references/rosenblatt1958_perceptron.pdf', 'pdf', 'Frank Rosenblatt', 1958, '10.1037/h0042519')
   `).run(userId);
 
-  // Ensure sample citation exists
+  // Ensure sample reference (TeX - LaTeX) exists
+  db.prepare(`
+    INSERT OR IGNORE INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
+    VALUES ('ref-hopfield-1982', ?, 'Redes de Hopfield e Memória Associativa Auto-organizável', 'references/hopfield1982_redes.tex', 'tex', 'John J. Hopfield', 1982, '10.1073/pnas.79.8.2554')
+  `).run(userId);
+
+  // Ensure sample reference (DOCX - Word) exists
+  db.prepare(`
+    INSERT OR IGNORE INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
+    VALUES ('ref-relatorio-redes', ?, 'Relatório Técnico: Avanços em Redes Neurais e Deep Learning', 'references/relatorio_redes_neurais.docx', 'docx', 'Equipe de Pesquisa & IA', 2026, null)
+  `).run(userId);
+
+  // Ensure sample citations exist
   db.prepare(`
     INSERT OR IGNORE INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
     VALUES ('cite-1', 'note-perceptron', 'ref-rosenblatt-1958', 'A convergência do Perceptron é garantida se o conjunto for linearmente separável', 7, 'p=7')
+  `).run();
+
+  db.prepare(`
+    INSERT OR IGNORE INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
+    VALUES ('cite-2', 'note-redes-neurais', 'ref-hopfield-1982', 'Modelos conexionistas recorrentes possuem capacidade inerente de recuperação de padrões', 1, 'line=19')
+  `).run();
+
+  db.prepare(`
+    INSERT OR IGNORE INTO citations (id, note_id, reference_id, quote_text, page_number, anchor_data)
+    VALUES ('cite-3', 'note-redes-neurais', 'ref-relatorio-redes', 'mitigam o problema do desaparecimento de gradientes em arquiteturas profundas', 1, 'p=2')
   `).run();
 
   // Ensure note-perceptron has the deep link reference in its content

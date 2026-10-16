@@ -6,6 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
+import { parseDocxFile } from './docx.js';
 
 initDatabase();
 
@@ -560,22 +561,111 @@ server.get('/api/references/:id', async (request, reply) => {
   return ref;
 });
 
-// Serve PDF stream
+function detectFileType(filename: string): string {
+  const ext = path.extname(filename).toLowerCase().replace('.', '');
+  if (['pdf'].includes(ext)) return 'pdf';
+  if (['doc', 'docx'].includes(ext)) return 'docx';
+  if (['tex', 'latex'].includes(ext)) return 'tex';
+  if (['html', 'htm'].includes(ext)) return 'html';
+  if (['md', 'markdown'].includes(ext)) return 'md';
+  if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) return 'video';
+  if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext)) return 'audio';
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
+  return ext || 'binary';
+}
+
+function getMimeType(filePath: string, fileType: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.pdf': return 'application/pdf';
+    case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case '.doc': return 'application/msword';
+    case '.tex': return 'text/plain; charset=utf-8';
+    case '.html':
+    case '.htm': return 'text/html; charset=utf-8';
+    case '.md': return 'text/markdown; charset=utf-8';
+    case '.mp4': return 'video/mp4';
+    case '.webm': return 'video/webm';
+    case '.mp3': return 'audio/mpeg';
+    case '.wav': return 'audio/wav';
+    case '.ogg': return 'audio/ogg';
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.svg': return 'image/svg+xml';
+    case '.webp': return 'image/webp';
+    default:
+      if (fileType === 'pdf') return 'application/pdf';
+      if (fileType === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (fileType === 'tex') return 'text/plain; charset=utf-8';
+      if (fileType === 'video') return 'video/mp4';
+      if (fileType === 'audio') return 'audio/mpeg';
+      if (fileType === 'image') return 'image/png';
+      return 'application/octet-stream';
+  }
+}
+
+// Serve Reference Stream (PDF, DOCX, Video, Audio, Imagem, etc.)
 server.get('/api/references/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
-  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { file_path: string; title: string } | undefined;
+  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { file_path: string; title: string; file_type: string } | undefined;
   if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
 
   const fullPath = path.isAbsolute(ref.file_path) ? ref.file_path : path.join(DATA_DIR, ref.file_path);
   if (!fs.existsSync(fullPath)) {
-    return reply.status(404).send({ error: 'Arquivo PDF não encontrado no disco' });
+    return reply.status(404).send({ error: 'Arquivo da referência não encontrado no disco' });
   }
 
   const stat = fs.statSync(fullPath);
-  reply.header('Content-Type', 'application/pdf');
+  const mimeType = getMimeType(fullPath, ref.file_type);
+  const ext = path.extname(fullPath) || `.${ref.file_type}`;
+  reply.header('Content-Type', mimeType);
   reply.header('Content-Length', stat.size);
-  reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(ref.title)}.pdf"`);
+  reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(ref.title)}${ext}"`);
   return reply.send(fs.createReadStream(fullPath));
+});
+
+// Get Reference Formatted Content (DOCX, TeX, HTML, Markdown)
+server.get('/api/references/:id/content', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { id: string; file_path: string; title: string; file_type: string } | undefined;
+  if (!ref) return reply.status(404).send({ error: 'Referência não encontrada' });
+
+  const fullPath = path.isAbsolute(ref.file_path) ? ref.file_path : path.join(DATA_DIR, ref.file_path);
+  if (!fs.existsSync(fullPath)) {
+    return reply.status(404).send({ error: 'Arquivo da referência não encontrado no disco' });
+  }
+
+  if (ref.file_type === 'docx' || fullPath.endsWith('.docx') || fullPath.endsWith('.doc')) {
+    try {
+      const docxData = parseDocxFile(fullPath);
+      return {
+        id: ref.id,
+        title: ref.title,
+        file_type: 'docx',
+        ...docxData
+      };
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Erro ao analisar DOCX: ${err.message}` });
+    }
+  }
+
+  if (['tex', 'latex', 'md', 'markdown', 'html', 'htm'].includes(ref.file_type) || /\.(tex|md|html|htm|txt)$/i.test(fullPath)) {
+    const text = fs.readFileSync(fullPath, 'utf8');
+    return {
+      id: ref.id,
+      title: ref.title,
+      file_type: ref.file_type,
+      text
+    };
+  }
+
+  return {
+    id: ref.id,
+    title: ref.title,
+    file_type: ref.file_type,
+    file_url: `/api/references/${ref.id}/file`
+  };
 });
 
 // Upload / Create Reference
@@ -592,14 +682,15 @@ server.post('/api/references', async (request, reply) => {
     const title = fields.title?.value || data.filename.replace(/\.[^.]+$/, '');
     const authors = fields.authors?.value || '';
     const year = fields.year ? parseInt(fields.year.value, 10) : new Date().getFullYear();
+    const fileType = detectFileType(data.filename);
     const id = `ref-${Date.now()}`;
 
     db.prepare(`
       INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year)
-      VALUES (?, ?, ?, ?, 'pdf', ?, ?)
-    `).run(id, userId, title, `references/${filename}`, authors, year);
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, title, `references/${filename}`, fileType, authors, year);
 
-    return { id, user_id: userId, title, file_path: `references/${filename}`, file_type: 'pdf', authors, year };
+    return { id, user_id: userId, title, file_path: `references/${filename}`, file_type: fileType, authors, year };
   } else {
     const body = request.body as {
       title: string;
@@ -609,22 +700,29 @@ server.post('/api/references', async (request, reply) => {
       doi?: string;
       file_base64?: string;
       filename?: string;
+      file_type?: string;
     };
     const id = `ref-${Date.now()}`;
     let filePath = body.file_path || '';
+    let fileType = body.file_type;
     if (body.file_base64 && body.filename) {
       const filename = `${Date.now()}-${body.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const targetPath = path.join(REFS_DIR, filename);
       await fs.promises.writeFile(targetPath, Buffer.from(body.file_base64, 'base64'));
       filePath = `references/${filename}`;
+      if (!fileType) fileType = detectFileType(body.filename);
+    }
+
+    if (!fileType) {
+      fileType = filePath ? detectFileType(filePath) : 'pdf';
     }
 
     db.prepare(`
       INSERT INTO references_files (id, user_id, title, file_path, file_type, authors, year, doi)
-      VALUES (?, ?, ?, ?, 'pdf', ?, ?, ?)
-    `).run(id, userId, body.title, filePath, 'pdf', body.authors || null, body.year || null, body.doi || null);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, body.title, filePath, fileType, body.authors || null, body.year || null, body.doi || null);
 
-    return { id, user_id: userId, ...body, file_path: filePath, file_type: 'pdf' };
+    return { id, user_id: userId, ...body, file_path: filePath, file_type: fileType };
   }
 });
 

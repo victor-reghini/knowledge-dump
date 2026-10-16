@@ -11,7 +11,10 @@ import {
   Globe,
   FileCode,
   Upload,
-  Trash2
+  Trash2,
+  Film,
+  Music,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -140,23 +143,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </div>
 
-        {/* References & PDFs (RF-14, RF-19) */}
+        {/* References & Multi-Format Documents (RF-12, RF-14, RF-15, RF-16, RF-18) */}
         <div>
           <div className="nav-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Referências & Papers ({safeReferences.length})</span>
+            <span>Referências ({safeReferences.length})</span>
             <button
               type="button"
               className="folder-add-root-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Importar Paper PDF"
+              title="Importar Arquivo (PDF, DOCX, TeX, Mídia)"
             >
               <Upload size={13} />
-              <span>PDF</span>
+              <span>+ Arquivo</span>
             </button>
             <input
               type="file"
               ref={fileInputRef}
-              accept="application/pdf"
+              accept=".pdf,.docx,.doc,.tex,.latex,.html,.htm,.md,.mp4,.webm,.mov,.mp3,.wav,.ogg,.png,.jpg,.jpeg,.svg,.webp"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -164,15 +167,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {safeReferences.map((ref) => {
             const isActive = activeReferenceId === ref.id;
+            const type = ref.file_type?.toLowerCase() || '';
+            const path = ref.file_path?.toLowerCase() || '';
+
+            const renderRefIcon = () => {
+              if (type === 'pdf' || path.endsWith('.pdf')) {
+                return <FileText size={14} className="nav-item-icon" style={{ color: '#ef4444' }} />;
+              }
+              if (type === 'docx' || type === 'doc' || path.endsWith('.docx') || path.endsWith('.doc')) {
+                return <FileText size={14} className="nav-item-icon" style={{ color: '#3b82f6' }} />;
+              }
+              if (type === 'tex' || type === 'latex' || path.endsWith('.tex')) {
+                return <FileCode size={14} className="nav-item-icon" style={{ color: '#a855f7' }} />;
+              }
+              if (type === 'video' || /\.(mp4|webm|mov|mkv)$/i.test(path)) {
+                return <Film size={14} className="nav-item-icon" style={{ color: '#eab308' }} />;
+              }
+              if (type === 'audio' || /\.(mp3|wav|ogg|m4a)$/i.test(path)) {
+                return <Music size={14} className="nav-item-icon" style={{ color: '#06b6d4' }} />;
+              }
+              if (type === 'image' || /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(path)) {
+                return <ImageIcon size={14} className="nav-item-icon" style={{ color: '#22c55e' }} />;
+              }
+              return <FileText size={14} className="nav-item-icon text-accent" />;
+            };
+
             return (
               <div key={ref.id} className="ref-nav-wrapper">
                 <button
                   className={`nav-item ${isActive ? 'active' : ''}`}
                   onClick={() => onSelectReference(ref)}
-                  title={ref.title}
+                  title={`${ref.title} (${ref.file_type.toUpperCase()})`}
                 >
                   <span className="nav-item-content">
-                    <FileCode size={14} className="nav-item-icon text-accent" />
+                    {renderRefIcon()}
                     <span className="truncate">{ref.title}</span>
                   </span>
                 </button>

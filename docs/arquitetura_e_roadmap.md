@@ -71,7 +71,7 @@ gantt
 
     section Fase 2: Experiência Mac & Visualizadores
     Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :done, b1, 2026-10-28, 2026-10-29
-    Visualizadores Auxiliares (DOCX, LaTeX, MD) (Ativ 2.3)     :b3, after b1, 7d
+    Visualizadores Auxiliares (DOCX, LaTeX, MD) (Ativ 2.3)     :done, b3, 2026-10-29, 2026-10-30
     Testes de Carga com PDFs Volumosos (100MB+) (Ativ 2.4)     :b4, after b3, 4d
 
     section Fase 3: Estudos & Síntese
@@ -225,11 +225,20 @@ gantt
   - Endpoint `/api/search?q=` consultando FTS5 com ranking de relevância (`snippet()`).
   - Modal de busca global com atalho de teclado `Cmd+K` / `Ctrl+K` integrado na UI.
 
-#### Atividade 2.3: Visualizadores de DOCX, LaTeX e Mídia [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/2.3-visualizadores-docx-latex-midia`
+#### Atividade 2.3: Visualizadores de DOCX, LaTeX e Mídia [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/2.3-visualizadores-docx-latex-midia`
 - **Responsável:** `agent-development`
 - **Descrição:** Incluir renderizadores embutidos para `.docx`, `.tex` e reprodutor de áudio/vídeo com marcação de timestamps.
+- **Entregas Realizadas:**
+  - Criação do extrator e parser nativo de DOCX (`server/docx.ts`) com descompactação ZIP sem dependências externas via `node:zlib`, preservando títulos, parágrafos, negrito/itálico e tabelas.
+  - Componente [`DocxViewer.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/DocxViewer.tsx) (RF-15) com renderização rica em formato de página de texto, zoom escalonável, busca textual interna e tooltip flutuante de citação direta com deep-link `docx://<id>?p=<num>`.
+  - Componente [`LatexViewer.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/LatexViewer.tsx) (RF-16) com modos "Formatado (KaTeX)", "Código-Fonte TeX" e "Lado a Lado (Split)", números de linha, busca e citação direta com deep-link `tex://<id>?line=<num>`.
+  - Componente [`MediaViewer.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/MediaViewer.tsx) (RF-18) com player de vídeo/áudio com seletor de velocidade (0.75x a 2x), indicador de tempo em tempo real, citação com marcação de timestamp (`media://<id>?t=<secs>`) e visualizador de imagem com zoom/pan e rotação 90°.
+  - Componente unificador [`ReferenceViewer.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/ReferenceViewer.tsx) integrado no painel Split-View com roteamento dinâmico de tipo de arquivo.
+  - Expansão do upload em [`Sidebar.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/Sidebar.tsx) para múltiplos formatos com ícones semânticos distintos para PDF, DOCX, TeX, Vídeo, Áudio e Imagem.
+  - Generalização do parser de badges de deep-link em [`NoteEditor.tsx`](file:///home/npd/Downloads/projects/knowledge-dump/src/components/NoteEditor.tsx) para saltar diretamente para páginas de PDF, parágrafos de DOCX, linhas de LaTeX ou timestamps de vídeo/áudio.
+  - Suíte de testes automatizados [`tests/atividade-2.3.test.ts`](file:///home/npd/Downloads/projects/knowledge-dump/tests/atividade-2.3.test.ts) cobrindo todos os cenários.
 
 #### Atividade 2.4: Testes de Carga e Arquivos Volumosos [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

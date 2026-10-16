@@ -1873,4 +1873,102 @@ a:hover {
   outline-offset: 1px;
 }
 
+/* ==========================================================================
+   Visualizadores Auxiliares: DOCX, LaTeX e Mídia (Atividade 2.3)
+   ========================================================================== */
+
+/* Deep-link Highlight Glow */
+.p-deeplink-highlight {
+  animation: deeplink-glow 2.5s ease-out forwards;
+}
+
+@keyframes deeplink-glow {
+  0% {
+    background-color: rgba(234, 179, 8, 0.45);
+    outline: 2px solid var(--accent-yellow);
+  }
+  70% {
+    background-color: rgba(234, 179, 8, 0.2);
+    outline: 1px solid var(--accent-yellow);
+  }
+  100% {
+    background-color: transparent;
+    outline: none;
+  }
+}
+
+/* DOCX Viewer Typography */
+.docx-paper-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-primary);
+}
+
+.docx-title {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  line-height: 1.3;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+.docx-heading-1 {
+  font-size: 1.35em;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.docx-heading-2 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin-top: 18px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.docx-heading-3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.docx-paragraph {
+  margin-bottom: 12px;
+  text-align: justify;
+}
+
+.docx-list-item {
+  margin-left: 24px;
+  margin-bottom: 6px;
+}
+
+.docx-search-match {
+  background-color: rgba(234, 179, 8, 0.25) !important;
+  border-left: 3px solid var(--accent-yellow);
+}
+
+/* LaTeX Viewer Typography */
+.latex-rendered-paper {
+  font-family: 'Times New Roman', Times, Georgia, serif;
+}
+
+.latex-sec {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.latex-subsec,
+.latex-subsubsec {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tex-line:hover {
+  background-color: var(--bg-hover);
+}
+
+
 

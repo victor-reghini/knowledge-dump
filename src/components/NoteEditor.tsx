@@ -35,7 +35,7 @@ interface NoteEditorProps {
   onNavigateToNoteTitle: (title: string, anchor?: string) => void;
   onAddBookmark: (noteId: string, title: string, comment?: string) => Promise<void>;
   onOpenShare: (note: Note) => void;
-  onOpenPdfDeepLink?: (referenceId: string, pageNumber: number, highlightText?: string) => void;
+  onOpenPdfDeepLink?: (referenceId: string, pageNumber: number, highlightText?: string, anchorData?: string) => void;
   onToggleSplitView?: () => void;
   isSplitViewOpen?: boolean;
   onDeleteCitation?: (id: string) => Promise<void>;
@@ -289,26 +289,53 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 const linkText = linkMatch[1];
                 const linkUrl = linkMatch[2];
 
-                if (linkUrl.startsWith('pdf://')) {
-                  const clean = linkUrl.replace('pdf://', '');
+                const isDeepLink = /^(pdf|docx|tex|media):\/\//.test(linkUrl);
+                if (isDeepLink) {
+                  const protocol = linkUrl.split('://')[0];
+                  const clean = linkUrl.replace(/^(pdf|docx|tex|media):\/\//, '');
                   const [refIdAndQuery] = clean.split('#');
                   const [refId, queryStr] = refIdAndQuery.split('?');
                   const params = new URLSearchParams(queryStr || '');
-                  const pageNumber = parseInt(params.get('page') || '1', 10);
+
+                  let pillLabel = 'Ref';
+                  let posNumber = 1;
+                  let anchorData: string | undefined;
+
+                  if (protocol === 'pdf') {
+                    posNumber = parseInt(params.get('page') || '1', 10);
+                    pillLabel = `Pág. ${posNumber}`;
+                    anchorData = `p=${posNumber}`;
+                  } else if (protocol === 'docx') {
+                    posNumber = parseInt(params.get('p') || '1', 10);
+                    pillLabel = `Parágrafo ${posNumber}`;
+                    anchorData = `p=${posNumber}`;
+                  } else if (protocol === 'tex') {
+                    posNumber = parseInt(params.get('line') || '1', 10);
+                    pillLabel = `Linha ${posNumber}`;
+                    anchorData = `line=${posNumber}`;
+                  } else if (protocol === 'media') {
+                    const secs = parseInt(params.get('t') || '0', 10);
+                    const m = Math.floor(secs / 60);
+                    const s = Math.floor(secs % 60);
+                    pillLabel = `⏱️ ${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                    posNumber = secs;
+                    anchorData = `t=${secs}`;
+                  }
+
                   const highlightText = params.get('highlight') || undefined;
 
                   return (
                     <span
                       key={`link-${mIdx}-${wIdx}-${bIdx}-${cIdx}-${lIdx}`}
                       className="pdf-citation-link-badge"
-                      onClick={() => onOpenPdfDeepLink && onOpenPdfDeepLink(refId, isNaN(pageNumber) ? 1 : pageNumber, highlightText)}
-                      title={`Abrir página ${pageNumber} do PDF original (Deep-link)`}
+                      onClick={() => onOpenPdfDeepLink && onOpenPdfDeepLink(refId, isNaN(posNumber) ? 1 : posNumber, highlightText, anchorData)}
+                      title={`Abrir ${protocol.toUpperCase()} original (${pillLabel})`}
                       role="button"
                       tabIndex={0}
                     >
                       <Quote size={12} className="pdf-cite-icon" />
                       <span>{linkText}</span>
-                      <small className="pdf-page-pill">Pág. {pageNumber}</small>
+                      <small className="pdf-page-pill">{pillLabel}</small>
                     </span>
                   );
                 }

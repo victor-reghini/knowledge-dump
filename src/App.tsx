@@ -9,7 +9,7 @@ import { SearchModal } from './components/SearchModal';
 import { ShareModal } from './components/ShareModal';
 import { AuthModal } from './components/AuthModal';
 import { PublicNoteView } from './components/PublicNoteView';
-import { PdfViewer } from './components/PdfViewer';
+import { ReferenceViewer } from './components/ReferenceViewer';
 import { ArrowLeft } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -27,10 +27,13 @@ export const App: React.FC = () => {
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Split-View & PDF states (RF-14, RF-19)
+  // Split-View & Document Viewer states (RF-14, RF-15, RF-16, RF-18, RF-19)
   const [isSplitViewOpen, setIsSplitViewOpen] = useState(false);
   const [activeReference, setActiveReference] = useState<ReferenceFile | null>(null);
   const [pdfInitialPage, setPdfInitialPage] = useState<number>(1);
+  const [initialParagraph, setInitialParagraph] = useState<number | undefined>();
+  const [initialLine, setInitialLine] = useState<number | undefined>();
+  const [initialTimestamp, setInitialTimestamp] = useState<number | undefined>();
   const [pdfHighlightText, setPdfHighlightText] = useState<string | undefined>(undefined);
 
   // User state (RF-36)
@@ -274,25 +277,72 @@ export const App: React.FC = () => {
     }
   };
 
-  // Deep-link from note or citation card into PDF Viewer (RF-19 & Cenário 2)
-  const handleOpenPdfDeepLink = (referenceId: string, pageNumber: number, highlightText?: string) => {
+  // Deep-link from note or citation card into Document Viewer (RF-19 & RF-20)
+  const handleOpenPdfDeepLink = (
+    referenceId: string,
+    pageNumber: number,
+    highlightText?: string,
+    anchorData?: string
+  ) => {
     const targetRef = references.find((r) => r.id === referenceId) || activeReference || references[0];
     if (targetRef) {
       setActiveReference(targetRef);
-      setPdfInitialPage(pageNumber);
       setPdfHighlightText(highlightText);
+
+      const type = targetRef.file_type?.toLowerCase() || '';
+      if (anchorData?.startsWith('t=') || type === 'video' || type === 'audio') {
+        const secs = anchorData?.startsWith('t=') ? parseInt(anchorData.replace('t=', ''), 10) : pageNumber;
+        setInitialTimestamp(secs);
+      } else if (anchorData?.startsWith('line=') || type === 'tex') {
+        const line = anchorData?.startsWith('line=') ? parseInt(anchorData.replace('line=', ''), 10) : pageNumber;
+        setInitialLine(line);
+      } else if (anchorData?.startsWith('p=') || type === 'docx') {
+        const p = anchorData?.startsWith('p=') ? parseInt(anchorData.replace('p=', ''), 10) : pageNumber;
+        setInitialParagraph(p);
+      } else {
+        setPdfInitialPage(pageNumber || 1);
+      }
+
       setIsSplitViewOpen(true);
     }
   };
 
-  // Citation from PDF into active note (RF-19 & Cenário 2)
+  // Citation from Document Viewer into active note (RF-19 & RF-20)
   const handleCiteFromPdf = async (citation: {
     quoteText: string;
     pageNumber: number;
     referenceId: string;
     referenceTitle: string;
+    anchorData?: string;
   }) => {
-    const citationMarkdown = `\n\n> "${citation.quoteText}"\n> — [${citation.referenceTitle} (p. ${citation.pageNumber})](pdf://${citation.referenceId}?page=${citation.pageNumber})\n`;
+    const ref = references.find((r) => r.id === citation.referenceId);
+    const type = ref?.file_type?.toLowerCase() || 'pdf';
+
+    let protocol = 'pdf';
+    let paramStr = `page=${citation.pageNumber}`;
+    let label = `p. ${citation.pageNumber}`;
+
+    if (citation.anchorData?.startsWith('t=') || type === 'video' || type === 'audio') {
+      protocol = 'media';
+      const secs = citation.anchorData?.replace('t=', '') || citation.pageNumber;
+      paramStr = `t=${secs}`;
+      const m = Math.floor(Number(secs) / 60);
+      const s = Math.floor(Number(secs) % 60);
+      label = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    } else if (citation.anchorData?.startsWith('line=') || type === 'tex') {
+      protocol = 'tex';
+      const line = citation.anchorData?.replace('line=', '') || citation.pageNumber;
+      paramStr = `line=${line}`;
+      label = `linha ${line}`;
+    } else if (citation.anchorData?.startsWith('p=') || type === 'docx') {
+      protocol = 'docx';
+      const p = citation.anchorData?.replace('p=', '') || citation.pageNumber;
+      paramStr = `p=${p}`;
+      label = `parágrafo ${p}`;
+    }
+
+    const citationMarkdown = `\n\n> "${citation.quoteText}"\n> — [${citation.referenceTitle} (${label})](${protocol}://${citation.referenceId}?${paramStr})\n`;
+    const anchorVal = citation.anchorData || `p=${citation.pageNumber}`;
 
     if (!activeNote) {
       const newNote = await api.createNote({
@@ -304,7 +354,7 @@ export const App: React.FC = () => {
         reference_id: citation.referenceId,
         quote_text: citation.quoteText,
         page_number: citation.pageNumber,
-        anchor_data: `p=${citation.pageNumber}`
+        anchor_data: anchorVal
       });
       await loadData();
       setActiveNoteId(newNote.id);
@@ -317,7 +367,7 @@ export const App: React.FC = () => {
       reference_id: citation.referenceId,
       quote_text: citation.quoteText,
       page_number: citation.pageNumber,
-      anchor_data: `p=${citation.pageNumber}`
+      anchor_data: anchorVal
     });
 
     const updatedContent = activeNote.content + citationMarkdown;
@@ -577,12 +627,15 @@ export const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Side PDF Viewer Panel (Split-View) */}
+              {/* Side Document Viewer Panel (Split-View: PDF, DOCX, LaTeX, Vídeo, Áudio, Imagem) */}
               {isSplitViewOpen && activeReference && (
                 <div className="split-view-side">
-                  <PdfViewer
+                  <ReferenceViewer
                     reference={activeReference}
                     initialPage={pdfInitialPage}
+                    initialParagraph={initialParagraph}
+                    initialLine={initialLine}
+                    initialTimestamp={initialTimestamp}
                     highlightText={pdfHighlightText}
                     onCite={handleCiteFromPdf}
                     onClose={() => setIsSplitViewOpen(false)}
