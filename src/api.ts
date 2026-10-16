@@ -81,11 +81,29 @@ export const api = {
     return res.json();
   },
 
-  async createCategory(name: string, color?: string): Promise<Category> {
+  async createCategory(data: { name: string; color?: string; icon?: string; parent_id?: string | null } | string, color?: string): Promise<Category> {
+    const payload = typeof data === 'string' ? { name: data, color } : data;
     const res = await fetch(`${BASE_URL}/categories`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ name, color })
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  async updateCategory(id: string, data: { name?: string; color?: string; icon?: string; parent_id?: string | null }): Promise<Category> {
+    const res = await fetch(`${BASE_URL}/categories/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async deleteCategory(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
     return res.json();
   },

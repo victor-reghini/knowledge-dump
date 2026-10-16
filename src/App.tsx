@@ -165,6 +165,21 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateFolder = async (id: string, data: { name?: string; parent_id?: string | null }) => {
+    try {
+      await api.updateFolder(id, data);
+      const [updatedFolders, updatedNotes] = await Promise.all([api.getFolders(), api.getNotes()]);
+      setFolders(updatedFolders);
+      setNotes(updatedNotes);
+      if (activeNote) {
+        const refreshed = await api.getNote(activeNote.id);
+        setActiveNote(refreshed);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar pasta:', err);
+    }
+  };
+
   const handleDeleteFolder = async (id: string) => {
     try {
       await api.deleteFolder(id);
@@ -174,6 +189,48 @@ export const App: React.FC = () => {
       if (selectedFolderId === id) setSelectedFolderId(null);
     } catch (err) {
       console.error('Erro ao excluir pasta:', err);
+    }
+  };
+
+  // Category management (Criação, Edição, Mover, Remoção)
+  const handleCreateCategory = async (data: { name: string; color?: string; parent_id?: string | null }) => {
+    try {
+      await api.createCategory(data);
+      const updated = await api.getCategories();
+      setCategories(updated);
+    } catch (err) {
+      console.error('Erro ao criar categoria:', err);
+    }
+  };
+
+  const handleUpdateCategory = async (id: string, data: { name?: string; color?: string; parent_id?: string | null }) => {
+    try {
+      await api.updateCategory(id, data);
+      const [updatedCats, updatedNotes] = await Promise.all([api.getCategories(), api.getNotes()]);
+      setCategories(updatedCats);
+      setNotes(updatedNotes);
+      if (activeNote) {
+        const refreshed = await api.getNote(activeNote.id);
+        setActiveNote(refreshed);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar categoria:', err);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await api.deleteCategory(id);
+      const [updatedCats, updatedNotes] = await Promise.all([api.getCategories(), api.getNotes()]);
+      setCategories(updatedCats);
+      setNotes(updatedNotes);
+      if (selectedCategoryId === id) setSelectedCategoryId(null);
+      if (activeNote) {
+        const refreshed = await api.getNote(activeNote.id);
+        setActiveNote(refreshed);
+      }
+    } catch (err) {
+      console.error('Erro ao excluir categoria:', err);
     }
   };
 
@@ -430,7 +487,11 @@ export const App: React.FC = () => {
         onSelectFolder={handleSelectFolder}
         onViewAllNotes={handleViewAllNotes}
         onCreateFolder={handleCreateFolder}
+        onUpdateFolder={handleUpdateFolder}
         onDeleteFolder={handleDeleteFolder}
+        onCreateCategory={handleCreateCategory}
+        onUpdateCategory={handleUpdateCategory}
+        onDeleteCategory={handleDeleteCategory}
         onSelectReference={handleSelectReference}
         onUploadPdf={handleUploadPdf}
         onDeleteReference={handleDeleteReference}

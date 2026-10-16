@@ -49,6 +49,7 @@ export function initDatabase() {
       name TEXT NOT NULL,
       color TEXT DEFAULT '#eab308',
       icon TEXT DEFAULT 'folder',
+      parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -146,6 +147,7 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE notes ADD COLUMN share_include_related INTEGER DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE folders ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
+  try { db.exec("ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE;"); } catch {}
 
   // Ensure default user exists
   const defaultUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as { id: string } | undefined;

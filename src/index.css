@@ -1776,4 +1776,101 @@ a:hover {
   transform: translateY(-1px);
 }
 
+/* ==========================================================================
+   Category & Folder Tree Forms (Criação, Edição, Mover)
+   ========================================================================== */
+.tree-create-form,
+.tree-edit-form {
+  padding: 4px 6px;
+  margin: 2px 0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.tree-create-row,
+.tree-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tree-parent-select {
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  max-width: 120px;
+  outline: none;
+}
+
+.tree-edit-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tree-btn-confirm {
+  background-color: var(--accent-green);
+  border: none;
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 3px 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.12s ease;
+}
+
+.tree-btn-confirm:hover {
+  opacity: 0.85;
+}
+
+.tree-btn-cancel {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: 3px;
+  padding: 3px 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-btn-cancel:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.color-palette-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.color-dot-choice {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease;
+}
+
+.color-dot-choice:hover {
+  transform: scale(1.25);
+}
+
+.color-dot-choice.selected {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
 

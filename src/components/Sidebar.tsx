@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Note, Folder, Category, Bookmark, ReferenceFile } from '../types';
 import { FolderTree } from './FolderTree';
+import { CategoryTree } from './CategoryTree';
 import {
   BookOpen,
   Plus,
@@ -30,7 +31,11 @@ interface SidebarProps {
   onSelectFolder: (id: string | null) => void;
   onViewAllNotes: () => void;
   onCreateFolder: (name: string, parentId?: string | null) => Promise<void>;
+  onUpdateFolder?: (id: string, data: { name?: string; parent_id?: string | null }) => Promise<void>;
   onDeleteFolder?: (id: string) => Promise<void>;
+  onCreateCategory: (data: { name: string; color?: string; parent_id?: string | null }) => Promise<void>;
+  onUpdateCategory?: (id: string, data: { name?: string; color?: string; parent_id?: string | null }) => Promise<void>;
+  onDeleteCategory?: (id: string) => Promise<void>;
   onSelectReference: (ref: ReferenceFile) => void;
   onUploadPdf: (file: File) => Promise<void>;
   onDeleteReference?: (id: string) => Promise<void>;
@@ -53,7 +58,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectFolder,
   onViewAllNotes,
   onCreateFolder,
+  onUpdateFolder,
   onDeleteFolder,
+  onCreateCategory,
+  onUpdateCategory,
+  onDeleteCategory,
   onSelectReference,
   onUploadPdf,
   onDeleteReference
@@ -98,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Hierarchical Folders Tree (RF-04) */}
+        {/* Hierarchical Folders Tree (RF-04: Criação, Edição, Mover, Remoção) */}
         <div>
           <FolderTree
             folders={folders}
@@ -106,40 +115,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             selectedFolderId={selectedFolderId}
             onSelectFolder={onSelectFolder}
             onCreateFolder={onCreateFolder}
+            onUpdateFolder={onUpdateFolder}
             onDeleteFolder={onDeleteFolder}
           />
         </div>
 
-        {/* Categories (RF-04: Clicking opens directory view) */}
+        {/* Hierarchical Categories Tree (Criação, Edição, Cores, Mover, Remoção) */}
         <div>
-          <div className="nav-section-title">
-            <span>Categorias</span>
-          </div>
-          {categories.map((cat) => {
-            const count = allNotes.filter((n) => n.category_id === cat.id).length;
-            const isActive = selectedCategoryId === cat.id;
-            return (
-              <button
-                key={cat.id}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectCategory(isActive ? null : cat.id)}
-              >
-                <span className="nav-item-content">
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: cat.color || '#eab308',
-                      marginRight: 10
-                    }}
-                  />
-                  <span>{cat.name}</span>
-                </span>
-                <span className="nav-badge">{count}</span>
-              </button>
-            );
-          })}
+          <CategoryTree
+            categories={categories}
+            notes={allNotes}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={onSelectCategory}
+            onCreateCategory={onCreateCategory}
+            onUpdateCategory={onUpdateCategory}
+            onDeleteCategory={onDeleteCategory}
+          />
         </div>
 
         {/* References & PDFs (RF-14, RF-19) */}
