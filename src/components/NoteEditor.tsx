@@ -630,36 +630,40 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       {/* Toolbar */}
       <div className="note-toolbar">
         <button
+          type="button"
           className={`toolbar-btn ${viewMode === 'preview' ? 'active' : ''}`}
           onClick={() => setViewMode('preview')}
-          title="Modo de leitura com fórmulas renderizadas e hiperlinks ativos"
+          title="Modo Leitura & Fórmulas"
+          aria-label="Modo Leitura & Fórmulas"
         >
-          <Eye size={15} />
-          <span>Leitura & Fórmulas</span>
+          <Eye size={16} />
         </button>
 
         <button
+          type="button"
           className={`toolbar-btn ${viewMode === 'tiptap' ? 'active' : ''}`}
           onClick={() => setViewMode('tiptap')}
-          title="Editor visual formatado (WYSIWYG Tiptap)"
+          title="Editor Visual Formatado (WYSIWYG Tiptap)"
+          aria-label="Editor Visual Tiptap"
         >
-          <Layers size={15} />
-          <span>Editor Tiptap</span>
+          <Layers size={16} />
         </button>
 
         <button
+          type="button"
           className={`toolbar-btn ${viewMode === 'markdown' ? 'active' : ''}`}
           onClick={() => setViewMode('markdown')}
-          title="Editor direto de texto Markdown"
+          title="Editor Markdown Bruto"
+          aria-label="Editor Markdown Bruto"
         >
-          <Edit3 size={15} />
-          <span>Markdown Bruto</span>
+          <Edit3 size={16} />
         </button>
 
-        <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+        <div className="toolbar-divider" />
 
         {/* Action buttons */}
         <button
+          type="button"
           className={`toolbar-btn ${showWikilinkPrompt ? 'active' : ''}`}
           onClick={() => {
             setShowWikilinkPrompt(!showWikilinkPrompt);
@@ -668,12 +672,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             setShowBookmarkPrompt(false);
           }}
           title="Inserir Wikilink [[Nome da Nota]]"
+          aria-label="Inserir Wikilink"
         >
-          <LinkIcon size={14} />
-          <span>+ Wikilink</span>
+          <LinkIcon size={16} />
         </button>
 
         <button
+          type="button"
           className={`toolbar-btn ${showMathPrompt ? 'active' : ''}`}
           onClick={() => {
             setShowMathPrompt(!showMathPrompt);
@@ -681,13 +686,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             setShowAnchorPrompt(false);
             setShowBookmarkPrompt(false);
           }}
-          title="Inserir fórmula matemática KaTeX ($$E=mc^2$$)"
+          title="Inserir Fórmula Matemática KaTeX ($$E=mc^2$$)"
+          aria-label="Inserir Fórmula KaTeX"
         >
-          <Sigma size={14} />
-          <span>+ KaTeX</span>
+          <Sigma size={16} />
         </button>
 
         <button
+          type="button"
           className={`toolbar-btn ${showAnchorPrompt ? 'active' : ''}`}
           onClick={() => {
             setShowAnchorPrompt(!showAnchorPrompt);
@@ -695,15 +701,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             setShowMathPrompt(false);
             setShowBookmarkPrompt(false);
           }}
-          title="Inserir âncora contextual {#secao}"
+          title="Inserir Âncora Contextual {#secao}"
+          aria-label="Inserir Âncora Contextual"
         >
-          <AnchorIcon size={14} />
-          <span>+ Âncora</span>
+          <AnchorIcon size={16} />
         </button>
 
-        <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+        <div className="toolbar-divider" />
 
         <button
+          type="button"
           className={`toolbar-btn ${showBookmarkPrompt ? 'active' : ''}`}
           onClick={() => {
             setShowBookmarkPrompt(!showBookmarkPrompt);
@@ -712,35 +719,37 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             setShowAnchorPrompt(false);
           }}
           title="Adicionar Marcador / Marca-Página nesta nota"
+          aria-label="Adicionar Marcador"
         >
-          <BookmarkIcon size={15} style={{ color: '#eab308' }} />
-          <span>Marcador</span>
+          <BookmarkIcon size={16} style={{ color: '#eab308' }} />
         </button>
 
-        <div style={{ width: 1, height: 20, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+        <div className="toolbar-divider" />
 
         {onToggleSplitView && (
           <button
+            type="button"
             className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
             onClick={onToggleSplitView}
-            title={isSplitViewOpen ? 'Fechar modo Dividir Tela' : 'Dividir Tela com Visualizador de PDF (Split-View)'}
+            title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela com Referências (Split-View)'}
+            aria-label="Dividir Tela (Split-View)"
           >
-            <Columns2 size={14} />
-            <span>{isSplitViewOpen ? 'Fechar Split-View' : 'Dividir c/ PDF'}</span>
+            <Columns2 size={16} />
           </button>
         )}
 
         <button
-          className="btn-blue"
+          type="button"
+          className="toolbar-btn"
           onClick={() => onOpenShare(note)}
-          title="Configurar compartilhamento público e rede de notas"
+          title="Configurar compartilhamento público"
+          aria-label="Compartilhar Nota"
         >
-          <Share2 size={14} />
-          <span>Compartilhar</span>
+          <Share2 size={16} />
         </button>
 
         {note.is_public ? (
-          <span className="public-badge" style={{ marginLeft: 6 }}>
+          <span className="public-badge" style={{ marginLeft: 2 }} title="Esta nota está pública">
             <Globe size={11} />
             <span>Pública</span>
           </span>
