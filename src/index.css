@@ -917,3 +917,195 @@ a:hover {
   background-color: var(--bg-hover);
 }
 
+/* ==========================================================================
+   Tiptap Editor & KaTeX Styles
+   ========================================================================== */
+.tiptap-container {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tiptap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tiptap-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tiptap-btn.is-active {
+  background-color: var(--primary-yellow);
+  color: var(--primary-yellow-text);
+  border-color: var(--primary-yellow-border);
+  font-weight: 600;
+}
+
+.tiptap-btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tiptap-btn-action:hover {
+  border-color: var(--primary-yellow-border);
+  background-color: var(--bg-hover);
+}
+
+.tiptap-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border-color);
+  margin: 0 4px;
+}
+
+.tiptap-editor-area {
+  padding: 16px 20px;
+  min-height: 380px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.tiptap-editor-area .ProseMirror {
+  outline: none;
+  min-height: 340px;
+}
+
+.tiptap-editor-area .ProseMirror p {
+  margin-bottom: 12px;
+}
+
+.tiptap-editor-area .ProseMirror h1 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  margin: 20px 0 10px 0;
+  color: var(--text-primary);
+}
+
+.tiptap-editor-area .ProseMirror h2 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: var(--text-primary);
+}
+
+.tiptap-editor-area .ProseMirror h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  color: var(--text-primary);
+}
+
+.tiptap-editor-area .ProseMirror ul,
+.tiptap-editor-area .ProseMirror ol {
+  padding-left: 24px;
+  margin: 8px 0 14px 0;
+}
+
+.tiptap-editor-area .ProseMirror blockquote {
+  border-left: 3px solid var(--primary-yellow-border);
+  padding-left: 14px;
+  margin: 14px 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.tiptap-editor-area .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 20px 0;
+}
+
+/* KaTeX Formula Blocks and Inlines */
+.katex-block-wrapper {
+  margin: 16px 0;
+  padding: 14px 18px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  text-align: center;
+  overflow-x: auto;
+}
+
+.katex-inline {
+  display: inline-block;
+  padding: 1px 4px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin: 0 2px;
+}
+
+.katex-error {
+  color: var(--accent-red);
+  background-color: var(--accent-red-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* Heading Anchor Links */
+.heading-anchor-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  scroll-margin-top: 80px;
+}
+
+.heading-anchor-link {
+  color: var(--text-muted);
+  opacity: 0.2;
+  transition: opacity 0.15s ease;
+  text-decoration: none;
+}
+
+.heading-anchor-container:hover .heading-anchor-link {
+  opacity: 1;
+  color: var(--accent-blue);
+}
+
+/* Orphan Wikilinks */
+.wikilink.orphan {
+  color: var(--wikilink-orphan);
+  border-bottom: 1px dashed var(--wikilink-orphan);
+  background-color: var(--wikilink-orphan-bg);
+}
+
+.wikilink.orphan:hover {
+  background-color: rgba(220, 38, 38, 0.16);
+}
+

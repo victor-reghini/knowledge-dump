@@ -182,11 +182,17 @@ export const App: React.FC = () => {
     }
   };
 
-  // Navigate to note by title (RF-07, RF-09: On-demand creation if orphan)
-  const handleNavigateToNoteTitle = async (title: string) => {
+  // Navigate to note by title & anchor (RF-07, RF-08, RF-09: On-demand creation if orphan)
+  const handleNavigateToNoteTitle = async (title: string, anchor?: string) => {
     const found = notes.find((n) => n.title.toLowerCase() === title.toLowerCase());
     if (found) {
       setActiveNoteId(found.id);
+      if (anchor) {
+        setTimeout(() => {
+          const el = document.getElementById(anchor);
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+      }
     } else {
       const confirmed = confirm(
         `A nota "[[${title}]]" ainda não existe. Deseja criá-la agora com 1 clique?`

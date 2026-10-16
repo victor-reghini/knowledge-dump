@@ -184,10 +184,19 @@ As Redes Neurais Artificiais (RNAs) são modelos computacionais inspirados no si
 ## Fundamentos
 O modelo basilar de aprendizado supervisionado linear é o [[Perceptron]], proposto por Frank Rosenblatt em 1958.
 
+## Função de Ativação {#funcao-ativacao}
+A função de ativação sigmoide $\\sigma(z)$ mapeia qualquer entrada real para o intervalo $(0, 1)$ e é dada pela equação:
+
+$$\\sigma(z) = \\frac{1}{1 + e^{-z}}$$
+
+E também a fórmula da relatividade $E = mc^2$.
+
 ## Aplicações Modernas
 - Visão Computacional
 - Processamento de Linguagem Natural
-- Sistemas de Recomendação`;
+- Sistemas de Recomendação
+
+Ver também o conceito não criado: [[Backpropagation Gradiente]].`;
 
   db.prepare(`
     INSERT INTO notes (id, user_id, title, content, category_id, folder_id, is_favorite, is_public, share_token)
