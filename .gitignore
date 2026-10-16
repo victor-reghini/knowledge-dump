@@ -7,3 +7,17 @@ runs/
 .windsurfrules
 AGENTS.md
 CLAUDE.md
+
+# Node & Build outputs
+node_modules/
+.npm-cache/
+dist/
+dist-ssr/
+*.local
+
+# Environment & Local data
+.env
+.env.*
+!.env.example
+data/
+!data/.gitkeep
