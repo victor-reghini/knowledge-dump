@@ -25,6 +25,11 @@ export function hashPassword(password: string): string {
 export function initDatabase() {
   db.exec(`
     PRAGMA foreign_keys = ON;
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA busy_timeout = 5000;
+    PRAGMA cache_size = -64000;
+    PRAGMA temp_store = MEMORY;
 
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,

@@ -70,7 +70,7 @@ gantt
     Testes de Aceite BDD do MVP no Mac (Ativ 1.5)              :done, a5, 2026-10-28, 2026-10-28
 
     section Fase 2: Experiência Mac & Visualizadores
-    Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :b1, after a5, 5d
+    Otimização de Volumes Mac (Docker/OrbStack) (Ativ 2.1)     :done, b1, 2026-10-28, 2026-10-29
     Visualizadores Auxiliares (DOCX, LaTeX, MD) (Ativ 2.3)     :b3, after b1, 7d
     Testes de Carga com PDFs Volumosos (100MB+) (Ativ 2.4)     :b4, after b3, 4d
 
@@ -202,11 +202,18 @@ gantt
 
 ### Fase 2: Experiência Desktop Mac & Motor de Busca Local
 
-#### Atividade 2.1: Validação de Performance e Permissões de Volume no Mac [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/2.1-otimizacao-volumes-mac`
+#### Atividade 2.1: Validação de Performance e Permissões de Volume no Mac [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/2.1-otimizacao-volumes-mac`
 - **Responsável:** `agent-development`
 - **Descrição:** Otimizar permissões de leitura/escrita no volume montado no macOS (Docker Desktop / OrbStack) e configurar script rápido de inicialização (`./start-mac.sh`).
+- **Entregas Realizadas:**
+  - Criação do script interativo executável [`start-mac.sh`](file:///home/npd/Downloads/projects/knowledge-dump/start-mac.sh) para inicialização em 1 clique com suporte a OrbStack, Docker Desktop e Colima.
+  - Verificação e ajuste preventivo de permissões no volume host (`./data` e `./data/references`) compatível com VirtioFS e gRPC FUSE no macOS.
+  - Verificação de portas e polling ativo do endpoint `/api/health` com abertura automática no navegador padrão (`open http://localhost:3000` no macOS).
+  - Otimizações de IOPS e tolerância a concorrência no SQLite com pragmas: `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000`, `cache_size = -64000` (64MB) e `temp_store = MEMORY`.
+  - Suíte de testes automatizados [`tests/atividade-2.1.test.ts`](file:///home/npd/Downloads/projects/knowledge-dump/tests/atividade-2.1.test.ts) validando sintaxe Bash, permissões de arquivo, pragmas e throughput em rajadas de escrita.
+
 
 #### Atividade 2.2: Motor de Busca Global Full-Text (FTS5) [CONCLUÍDA ANTECIPADAMENTE 🚀]
 - **Status:** **CONCLUÍDA ANTECIPADAMENTE 🚀** (Implementada na integração do backend SQLite da Fase 1)
