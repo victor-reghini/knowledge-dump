@@ -4,7 +4,6 @@ import {
   BookOpen,
   FileText,
   Download,
-  Share2,
   Trash2,
   Plus,
   Search,
@@ -14,22 +13,13 @@ import {
   ChevronRight,
   ChevronDown,
   Quote,
-  Hash,
   ExternalLink,
   Copy,
-  Layers,
-  Save,
-  Clock,
-  Type,
-  FileCode,
   BookMarked,
-  List,
-  Sparkles,
-  Eye,
-  Edit3
+  List
 } from 'lucide-react';
 import { api } from '../api';
-import { Article, ArticleCitation, ReferenceFile, Note, CompileOptions, CompileResult } from '../types';
+import { Article, ArticleCitation, ReferenceFile, Note } from '../types';
 
 interface ScientificEditorProps {
   references: ReferenceFile[];
@@ -219,7 +209,6 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
         formatted_text: `${(ref.authors || 'AUTOR').toUpperCase()}. ${ref.title}. ${ref.year || ''}.`
       });
 
-      // Update local article citations
       const updatedCitations = [...(activeArticle.citations || []), citation];
       setActiveArticle({
         ...activeArticle,
@@ -227,7 +216,6 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
         citations_count: updatedCitations.length
       });
 
-      // Insert inline citation
       const inlineTag = ` (${authorLastName.toUpperCase()}, ${year})`;
       insertTextAtCursor(inlineTag);
     } catch (err) {
@@ -252,7 +240,6 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
         citations_count: updatedCitations.length
       });
 
-      // Insert Wikilink
       insertTextAtCursor(` [[${note.title}]] `);
     } catch (err) {
       console.error('Erro ao vincular nota:', err);
@@ -324,7 +311,6 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
     }
   }, [isExportModalOpen, exportFormat, exportStyle, includeAbstract, includeBib, includeFrontmatter]);
 
-  // Filter drawer references and notes
   const filteredReferences = references.filter(r =>
     r.title.toLowerCase().includes(drawerSearch.toLowerCase()) ||
     (r.authors && r.authors.toLowerCase().includes(drawerSearch.toLowerCase()))
@@ -336,35 +322,35 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
   );
 
   return (
-    <div className={`flex flex-col h-full bg-kd-bg text-kd-text select-text ${isFocusMode ? 'focus-mode' : ''}`}>
-      {/* Top Navbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-kd-border bg-kd-surface">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-yellow-500/10 text-yellow-500 font-bold">
+    <div className={`sci-container ${isFocusMode ? 'focus-mode' : ''}`}>
+      {/* Top Header Bar */}
+      <div className="sci-top-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ padding: '6px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-yellow-glow)', color: 'var(--primary-yellow-text)', display: 'flex' }}>
               <PenTool size={18} />
             </div>
             <div>
-              <span className="text-sm font-semibold tracking-wide text-kd-text">
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 Modo de Redação Científica
               </span>
-              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-kd-border text-kd-muted">
+              <span className="sci-badge" style={{ marginLeft: 8 }}>
                 RF-30 / RF-31
               </span>
             </div>
           </div>
 
           {activeArticle && (
-            <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-kd-border text-xs text-kd-muted">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid var(--border-color)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               <span>{activeArticle.word_count || 0} palavras</span>
               <span>•</span>
               <span>~{activeArticle.estimated_reading_minutes || 1} min de leitura</span>
               <span>•</span>
               <span>{activeArticle.citations_count || 0} fontes citadas</span>
               {saving ? (
-                <span className="text-yellow-500 ml-2 animate-pulse">Salvando...</span>
+                <span style={{ color: 'var(--primary-yellow-border)', marginLeft: 6 }}>Salvando...</span>
               ) : lastSaved ? (
-                <span className="text-green-500 ml-2 flex items-center gap-1">
+                <span style={{ color: 'var(--accent-green)', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Check size={12} /> Salvo
                 </span>
               ) : null}
@@ -372,43 +358,45 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
           )}
         </div>
 
-        {/* Top actions */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {activeArticle && (
             <>
               <button
+                type="button"
                 onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${
-                  isMetadataExpanded
-                    ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/40'
-                    : 'bg-kd-surface hover:bg-kd-hover text-kd-text border-kd-border'
-                }`}
+                className={`sci-btn ${isMetadataExpanded ? 'sci-btn-active' : ''}`}
                 title="Metadados acadêmicos (Resumo, Palavras-chave, Veículo)"
               >
                 <BookMarked size={14} />
-                <span className="hidden sm:inline">Metadados</span>
+                <span>Metadados</span>
                 {isMetadataExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
 
               <button
+                type="button"
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${
-                  isDrawerOpen
-                    ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/40'
-                    : 'bg-kd-surface hover:bg-kd-hover text-kd-text border-kd-border'
-                }`}
+                className={`sci-btn ${isDrawerOpen ? 'sci-btn-active' : ''}`}
                 title="Gaveta de Fontes e Citações"
               >
                 <Quote size={14} />
-                <span className="hidden sm:inline">Gaveta de Citações</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-yellow-500/20 text-yellow-600 dark:text-yellow-400">
+                <span>Gaveta de Citações</span>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontSize: '0.68rem',
+                  backgroundColor: 'var(--primary-yellow)',
+                  color: 'var(--primary-yellow-text)',
+                  fontWeight: 700
+                }}>
                   {activeArticle.citations_count || 0}
                 </span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-yellow-500 hover:bg-yellow-400 text-neutral-950 transition-colors shadow-sm"
+                className="sci-btn sci-btn-primary"
               >
                 <Download size={14} />
                 <span>Compilar & Exportar</span>
@@ -417,12 +405,10 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
           )}
 
           <button
+            type="button"
             onClick={() => setIsFocusMode(!isFocusMode)}
-            className={`p-1.5 rounded border transition-colors ${
-              isFocusMode
-                ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/40'
-                : 'bg-kd-surface hover:bg-kd-hover text-kd-muted border-kd-border'
-            }`}
+            className={`sci-icon-btn ${isFocusMode ? 'primary' : ''}`}
+            style={{ border: '1px solid var(--border-color)', padding: 6 }}
             title={isFocusMode ? 'Sair do Modo Foco' : 'Modo Foco Zen'}
           >
             {isFocusMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -430,56 +416,56 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Workspace Layout */}
+      <div className="sci-workspace">
         {/* Left: Article Selector Sidebar (hidden in focus mode) */}
         {!isFocusMode && (
-          <div className="w-64 border-r border-kd-border bg-kd-surface flex flex-col shrink-0">
-            {/* Header / Actions */}
-            <div className="p-3 border-b border-kd-border flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-kd-muted">
+          <aside className="sci-sidebar">
+            <div className="sci-sidebar-header">
+              <span className="sci-sidebar-title">
                 Seus Artigos ({articles.length})
               </span>
               <button
+                type="button"
                 onClick={handleCreateArticle}
-                className="p-1 rounded bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 transition-colors"
+                className="sci-icon-btn primary"
                 title="Novo Artigo"
               >
                 <Plus size={16} />
               </button>
             </div>
 
-            {/* Search and Filters */}
-            <div className="p-2 border-b border-kd-border space-y-2">
-              <div className="relative">
-                <Search size={14} className="absolute left-2.5 top-2.5 text-kd-muted" />
+            {/* Search Box */}
+            <div className="sci-search-box">
+              <div style={{ position: 'relative' }}>
+                <Search size={13} style={{ position: 'absolute', left: 8, top: 8, color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   placeholder="Buscar artigos..."
                   value={articleSearch}
                   onChange={e => setArticleSearch(e.target.value)}
-                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-kd-bg border border-kd-border rounded focus:outline-none focus:border-yellow-500"
+                  className="sci-input"
+                  style={{ paddingLeft: 26 }}
                 />
-              </div>
-              <div className="flex gap-1 text-[11px]">
-                {['all', 'draft', 'review', 'published'].map(st => (
-                  <button
-                    key={st}
-                    onClick={() => setStatusFilter(st)}
-                    className={`flex-1 py-0.5 rounded text-center capitalize transition-colors ${
-                      statusFilter === st
-                        ? 'bg-yellow-500 text-neutral-950 font-bold'
-                        : 'bg-kd-bg text-kd-muted hover:text-kd-text'
-                    }`}
-                  >
-                    {st === 'all' ? 'Todos' : st === 'draft' ? 'Rascunho' : st === 'review' ? 'Revisão' : 'Pronto'}
-                  </button>
-                ))}
               </div>
             </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-kd-border/50">
+            {/* Filter Pills */}
+            <div className="sci-pills">
+              {['all', 'draft', 'review', 'published'].map(st => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setStatusFilter(st)}
+                  className={`sci-pill ${statusFilter === st ? 'active' : ''}`}
+                >
+                  {st === 'all' ? 'Todos' : st === 'draft' ? 'Rascunho' : st === 'review' ? 'Revisão' : 'Pronto'}
+                </button>
+              ))}
+            </div>
+
+            {/* Articles List */}
+            <div className="sci-articles-list">
               {articles
                 .filter(a => a.title.toLowerCase().includes(articleSearch.toLowerCase()))
                 .map(art => {
@@ -488,42 +474,34 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                     <div
                       key={art.id}
                       onClick={() => loadArticleDetail(art.id)}
-                      className={`p-3 cursor-pointer group transition-colors ${
-                        isSelected
-                          ? 'bg-yellow-500/15 border-l-4 border-yellow-500'
-                          : 'hover:bg-kd-hover'
-                      }`}
+                      className={`sci-article-card ${isSelected ? 'active' : ''}`}
                     >
-                      <div className="flex items-start justify-between gap-1">
-                        <h4 className="text-xs font-semibold text-kd-text line-clamp-2 leading-tight">
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                        <h4 className="sci-article-title">
                           {art.title || 'Sem título'}
                         </h4>
                         <button
+                          type="button"
                           onClick={e => handleDeleteArticle(art.id, e)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
+                          className="sci-icon-btn"
+                          style={{ padding: 2 }}
                           title="Excluir Artigo"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={12} />
                         </button>
                       </div>
                       {art.subtitle && (
-                        <p className="text-[11px] text-kd-muted line-clamp-1 mt-0.5">
+                        <p className="sci-article-subtitle">
                           {art.subtitle}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 mt-2 text-[10px] text-kd-muted">
-                        <span className={`px-1.5 py-0.2 rounded font-medium ${
-                          art.status === 'published'
-                            ? 'bg-green-500/20 text-green-600 dark:text-green-400'
-                            : art.status === 'review'
-                            ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                            : 'bg-kd-border text-kd-muted'
-                        }`}>
+                      <div className="sci-article-tags">
+                        <span className={`sci-status-tag ${art.status}`}>
                           {art.status === 'published' ? 'Publicado' : art.status === 'review' ? 'Em Revisão' : 'Rascunho'}
                         </span>
                         <span>{art.word_count || 0} pal.</span>
                         {art.citations_count ? (
-                          <span className="flex items-center gap-0.5">
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                             <Quote size={10} /> {art.citations_count}
                           </span>
                         ) : null}
@@ -532,26 +510,26 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                   );
                 })}
               {articles.length === 0 && !loading && (
-                <div className="p-4 text-center text-xs text-kd-muted">
+                <div style={{ padding: 20, textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   Nenhum artigo encontrado. Clique no botão + acima para iniciar um novo texto acadêmico.
                 </div>
               )}
             </div>
-          </div>
+          </aside>
         )}
 
         {/* Center: Focused Writing Environment */}
-        <div className="flex-1 flex flex-col overflow-y-auto bg-kd-bg">
+        <main className="sci-main-canvas">
           {activeArticle ? (
-            <div className="max-w-4xl w-full mx-auto p-6 md:p-8 flex-1 flex flex-col gap-4">
+            <div className="sci-center-paper">
               {/* Status and Target Venue Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-kd-border/60 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-kd-muted">Estado do Manuscrito:</span>
+              <div className="sci-meta-strip">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Estado do Manuscrito:</span>
                   <select
                     value={activeArticle.status}
                     onChange={e => handleFieldChange('status', e.target.value)}
-                    className="bg-kd-surface border border-kd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-yellow-500 text-kd-text"
+                    className="sci-select"
                   >
                     <option value="draft">Rascunho Inicial</option>
                     <option value="review">Em Revisão por Pares</option>
@@ -559,41 +537,42 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-kd-muted">Veículo Alvo:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Veículo Alvo:</span>
                   <input
                     type="text"
                     placeholder="ex: Periódico IEEE, Revista ABNT, Simpósio"
                     value={activeArticle.target_venue || ''}
                     onChange={e => handleFieldChange('target_venue', e.target.value)}
-                    className="bg-kd-surface border border-kd-border rounded px-2.5 py-1 text-xs w-48 focus:outline-none focus:border-yellow-500 text-kd-text"
+                    className="sci-input"
+                    style={{ width: 220 }}
                   />
                 </div>
               </div>
 
               {/* Title & Subtitle */}
-              <div className="space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <input
                   type="text"
                   value={activeArticle.title}
                   onChange={e => handleFieldChange('title', e.target.value)}
                   placeholder="Título do Artigo Científico..."
-                  className="w-full text-2xl md:text-3xl font-extrabold tracking-tight bg-transparent border-b border-transparent hover:border-kd-border focus:border-yellow-500 focus:outline-none pb-1 text-kd-text"
+                  className="sci-title-input"
                 />
                 <input
                   type="text"
                   value={activeArticle.subtitle || ''}
                   onChange={e => handleFieldChange('subtitle', e.target.value)}
                   placeholder="Subtítulo ou delimitação do escopo teórico (opcional)..."
-                  className="w-full text-sm italic text-kd-muted bg-transparent border-b border-transparent hover:border-kd-border focus:border-yellow-500 focus:outline-none pb-1"
+                  className="sci-subtitle-input"
                 />
               </div>
 
               {/* Metadata Expandable Block (Abstract & Keywords) */}
               {isMetadataExpanded && (
-                <div className="p-4 rounded-lg bg-kd-surface border border-kd-border space-y-3">
+                <div className="sci-meta-card">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-kd-muted mb-1">
+                    <label className="sci-label">
                       Resumo Estruturado (Abstract)
                     </label>
                     <textarea
@@ -601,11 +580,11 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                       value={activeArticle.abstract || ''}
                       onChange={e => handleFieldChange('abstract', e.target.value)}
                       placeholder="Sintetize a problemática, metodologia, resultados centrais e conclusão..."
-                      className="w-full p-2.5 text-xs bg-kd-bg border border-kd-border rounded focus:outline-none focus:border-yellow-500 text-kd-text"
+                      className="sci-textarea"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-kd-muted mb-1">
+                    <label className="sci-label">
                       Palavras-chave (separadas por vírgula)
                     </label>
                     <input
@@ -616,18 +595,18 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                         handleFieldChange('keywords', kw);
                       }}
                       placeholder="ex: Redes Neurais, Otimização, Gradiente Descendente"
-                      className="w-full px-2.5 py-1.5 text-xs bg-kd-bg border border-kd-border rounded focus:outline-none focus:border-yellow-500 text-kd-text"
+                      className="sci-input"
                     />
                   </div>
                 </div>
               )}
 
               {/* Formatting Toolbar */}
-              <div className="flex flex-wrap items-center gap-1 p-1.5 rounded-lg bg-kd-surface border border-kd-border text-xs">
+              <div className="sci-toolbar">
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('\n# ')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-bold"
+                  className="sci-tool-btn bold"
                   title="Seção Principal (H1)"
                 >
                   H1
@@ -635,7 +614,7 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('\n## ')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-bold"
+                  className="sci-tool-btn bold"
                   title="Subseção (H2)"
                 >
                   H2
@@ -643,16 +622,16 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('\n### ')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-bold"
+                  className="sci-tool-btn bold"
                   title="Sub-subseção (H3)"
                 >
                   H3
                 </button>
-                <div className="w-[1px] h-4 bg-kd-border mx-1" />
+                <div className="sci-tool-divider" />
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('**termo**')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-bold"
+                  className="sci-tool-btn bold"
                   title="Negrito (**)"
                 >
                   B
@@ -660,7 +639,7 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('*termo*')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text italic"
+                  className="sci-tool-btn italic"
                   title="Itálico (*)"
                 >
                   I
@@ -668,7 +647,7 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('\n> ')}
-                  className="p-1 hover:bg-kd-hover rounded text-kd-text"
+                  className="sci-tool-btn"
                   title="Citação em Bloco (>)"
                 >
                   <Quote size={14} />
@@ -676,7 +655,7 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor('\n- ')}
-                  className="p-1 hover:bg-kd-hover rounded text-kd-text"
+                  className="sci-tool-btn"
                   title="Item de Lista (-)"
                 >
                   <List size={14} />
@@ -684,16 +663,18 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor(' $E=mc^2$ ')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-mono text-[11px]"
+                  className="sci-tool-btn"
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}
                   title="Fórmula LaTeX ($)"
                 >
                   $\sum$
                 </button>
-                <div className="w-[1px] h-4 bg-kd-border mx-1" />
+                <div className="sci-tool-divider" />
                 <button
                   type="button"
                   onClick={() => insertTextAtCursor(' [[Nota]] ')}
-                  className="px-2 py-1 hover:bg-kd-hover rounded text-kd-text font-mono text-[11px] text-yellow-600 dark:text-yellow-400"
+                  className="sci-tool-btn"
+                  style={{ color: 'var(--primary-yellow-border)', fontWeight: 600 }}
                   title="Wikilink para anotação"
                 >
                   [[Wikilink]]
@@ -701,56 +682,60 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsDrawerOpen(true)}
-                  className="ml-auto flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20"
+                  className="sci-btn"
+                  style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: '0.72rem' }}
                 >
                   <Quote size={12} /> Inserir Fonte
                 </button>
               </div>
 
               {/* Main Content Textarea */}
-              <div className="flex-1 flex flex-col min-h-[420px]">
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 480 }}>
                 <textarea
                   ref={textareaRef}
                   value={activeArticle.content}
                   onChange={e => handleFieldChange('content', e.target.value)}
                   placeholder="Escreva seu artigo aqui... Use Markdown para títulos, parágrafos e citações."
-                  className="w-full flex-1 p-4 font-mono text-sm leading-relaxed bg-kd-surface border border-kd-border rounded-lg focus:outline-none focus:border-yellow-500 resize-none text-kd-text shadow-inner"
+                  className="sci-editor-textarea"
                 />
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-              <div className="p-4 rounded-full bg-yellow-500/10 text-yellow-500 mb-3">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32, textAlign: 'center' }}>
+              <div style={{ padding: 18, borderRadius: '50%', backgroundColor: 'var(--primary-yellow-glow)', color: 'var(--primary-yellow-text)', marginBottom: 16 }}>
                 <PenTool size={36} />
               </div>
-              <h3 className="text-base font-bold text-kd-text mb-1">
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
                 Ambiente de Redação Acadêmica & Síntese
               </h3>
-              <p className="text-xs text-kd-muted max-w-md mb-4">
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: 440, marginBottom: 20 }}>
                 Redija artigos científicos com acesso instantâneo a todas as notas, citações e referências catalogadas no acervo soberano.
               </p>
               <button
+                type="button"
                 onClick={handleCreateArticle}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-neutral-950 font-bold rounded-lg text-xs shadow-md"
+                className="sci-btn sci-btn-primary"
+                style={{ padding: '8px 18px', fontSize: '0.82rem' }}
               >
                 <Plus size={16} /> Criar Primeiro Artigo
               </button>
             </div>
           )}
-        </div>
+        </main>
 
         {/* Right Drawer: Gaveta de Citações e Fontes (RF-30) */}
         {isDrawerOpen && activeArticle && !isFocusMode && (
-          <div className="w-80 border-l border-kd-border bg-kd-surface flex flex-col shrink-0">
+          <aside className="sci-drawer">
             {/* Header */}
-            <div className="p-3 border-b border-kd-border flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-kd-text">
-                <Quote size={14} className="text-yellow-500" />
+            <div className="sci-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Quote size={14} style={{ color: 'var(--primary-yellow-border)' }} />
                 <span>Gaveta de Citações</span>
               </div>
               <button
+                type="button"
                 onClick={() => setIsDrawerOpen(false)}
-                className="p-1 hover:bg-kd-hover rounded text-kd-muted"
+                className="sci-icon-btn"
                 title="Fechar Gaveta"
               >
                 ✕
@@ -758,24 +743,18 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-kd-border text-xs">
+            <div className="sci-tabs">
               <button
+                type="button"
                 onClick={() => setDrawerTab('search')}
-                className={`flex-1 py-2 text-center font-medium transition-colors border-b-2 ${
-                  drawerTab === 'search'
-                    ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400 font-bold'
-                    : 'border-transparent text-kd-muted hover:text-kd-text'
-                }`}
+                className={`sci-tab-btn ${drawerTab === 'search' ? 'active' : ''}`}
               >
                 Consultar Acervo
               </button>
               <button
+                type="button"
                 onClick={() => setDrawerTab('citations')}
-                className={`flex-1 py-2 text-center font-medium transition-colors border-b-2 ${
-                  drawerTab === 'citations'
-                    ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400 font-bold'
-                    : 'border-transparent text-kd-muted hover:text-kd-text'
-                }`}
+                className={`sci-tab-btn ${drawerTab === 'citations' ? 'active' : ''}`}
               >
                 Referências Citadas ({activeArticle.citations_count || 0})
               </button>
@@ -783,57 +762,58 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
 
             {/* Tab: Consultar Acervo */}
             {drawerTab === 'search' && (
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="p-2 border-b border-kd-border">
-                  <div className="relative">
-                    <Search size={14} className="absolute left-2.5 top-2.5 text-kd-muted" />
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <div style={{ position: 'relative' }}>
+                    <Search size={13} style={{ position: 'absolute', left: 8, top: 8, color: 'var(--text-muted)' }} />
                     <input
                       type="text"
                       placeholder="Filtrar papers, PDFs ou notas..."
                       value={drawerSearch}
                       onChange={e => setDrawerSearch(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-1 text-xs bg-kd-bg border border-kd-border rounded focus:outline-none focus:border-yellow-500 text-kd-text"
+                      className="sci-input"
+                      style={{ paddingLeft: 26 }}
                     />
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2 space-y-4">
+                <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
                   {/* References Section */}
-                  <div>
-                    <h5 className="text-[11px] font-bold uppercase tracking-wider text-kd-muted mb-1.5 flex items-center justify-between">
-                      <span>Papers & Referências ({filteredReferences.length})</span>
+                  <div style={{ marginBottom: 16 }}>
+                    <h5 style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                      Papers & Referências ({filteredReferences.length})
                     </h5>
-                    <div className="space-y-1.5">
+                    <div>
                       {filteredReferences.map(ref => (
-                        <div
-                          key={ref.id}
-                          className="p-2 rounded bg-kd-bg border border-kd-border/70 hover:border-yellow-500/50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="text-xs font-semibold text-kd-text line-clamp-1">
+                        <div key={ref.id} className="sci-ref-card">
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                            <span className="sci-ref-title">
                               {ref.title}
                             </span>
-                            <span className="text-[10px] px-1 py-0.2 rounded bg-kd-surface text-kd-muted uppercase">
+                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                               {ref.file_type}
                             </span>
                           </div>
-                          <p className="text-[10px] text-kd-muted mt-0.5 line-clamp-1">
+                          <p className="sci-ref-authors">
                             {ref.authors ? `${ref.authors} (${ref.year || 's.d.'})` : 'Autor desconhecido'}
                           </p>
 
                           {/* Quick Insert Buttons */}
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-kd-border/40">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 6, borderTop: '1px solid var(--border-color)' }}>
                             <button
+                              type="button"
                               onClick={() => handleAddCitationFromReference(ref)}
-                              className="flex-1 py-1 px-1.5 rounded bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-[10px] font-medium transition-colors"
+                              className="sci-btn"
+                              style={{ flex: 1, padding: '3px 8px', fontSize: '0.7rem', justifyContent: 'center' }}
                               title="Insere citação inline e inclui na bibliografia"
                             >
                               + Citar (ABNT)
                             </button>
                             {onNavigateToReference && (
                               <button
+                                type="button"
                                 onClick={() => onNavigateToReference(ref.id)}
-                                className="p-1 hover:bg-kd-hover rounded text-kd-muted hover:text-kd-text"
+                                className="sci-icon-btn"
                                 title="Abrir referência no visualizador"
                               >
                                 <ExternalLink size={12} />
@@ -843,42 +823,42 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                         </div>
                       ))}
                       {filteredReferences.length === 0 && (
-                        <p className="text-[11px] text-kd-muted italic p-1">Nenhuma referência encontrada.</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: 4 }}>
+                          Nenhuma referência encontrada.
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Notes Section */}
                   <div>
-                    <h5 className="text-[11px] font-bold uppercase tracking-wider text-kd-muted mb-1.5 flex items-center justify-between">
-                      <span>Notas do Acervo ({filteredNotes.length})</span>
+                    <h5 style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                      Notas do Acervo ({filteredNotes.length})
                     </h5>
-                    <div className="space-y-1.5">
+                    <div>
                       {filteredNotes.slice(0, 10).map(note => (
-                        <div
-                          key={note.id}
-                          className="p-2 rounded bg-kd-bg border border-kd-border/70 hover:border-yellow-500/50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="text-xs font-semibold text-kd-text line-clamp-1">
-                              {note.title}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-kd-muted mt-0.5 line-clamp-2">
-                            {note.content.replace(/<[^>]+>/g, '').slice(0, 80)}...
+                        <div key={note.id} className="sci-ref-card">
+                          <span className="sci-ref-title">
+                            {note.title}
+                          </span>
+                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {note.content.replace(/<[^>]+>/g, '').slice(0, 75)}...
                           </p>
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-kd-border/40">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 6, borderTop: '1px solid var(--border-color)' }}>
                             <button
+                              type="button"
                               onClick={() => handleAddCitationFromNote(note)}
-                              className="flex-1 py-1 px-1.5 rounded bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-[10px] font-medium transition-colors"
+                              className="sci-btn"
+                              style={{ flex: 1, padding: '3px 8px', fontSize: '0.7rem', justifyContent: 'center' }}
                               title="Insere Wikilink e vincula à bibliografia"
                             >
                               + Inserir [[Wikilink]]
                             </button>
                             {onNavigateToNote && (
                               <button
+                                type="button"
                                 onClick={() => onNavigateToNote(note.id)}
-                                className="p-1 hover:bg-kd-hover rounded text-kd-muted hover:text-kd-text"
+                                className="sci-icon-btn"
                                 title="Abrir nota no editor"
                               >
                                 <ExternalLink size={12} />
@@ -895,47 +875,50 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
 
             {/* Tab: Referências Citadas no Artigo */}
             {drawerTab === 'citations' && (
-              <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+              <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
                 {(activeArticle.citations || []).length > 0 ? (
                   activeArticle.citations!.map((cit, idx) => (
-                    <div
-                      key={cit.id}
-                      className="p-2.5 rounded bg-kd-bg border border-kd-border relative group"
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="text-[11px] font-bold text-yellow-500">
+                    <div key={cit.id} className="sci-ref-card">
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary-yellow-border)', fontFamily: 'var(--font-mono)' }}>
                           [{idx + 1}] \{'{'}{cit.citation_key}{'}'}
                         </span>
                         <button
+                          type="button"
                           onClick={() => handleRemoveCitation(cit.id)}
-                          className="text-kd-muted hover:text-red-500 p-0.5"
+                          className="sci-icon-btn"
+                          style={{ padding: 2, color: 'var(--accent-red)' }}
                           title="Remover citação deste artigo"
                         >
                           <Trash2 size={12} />
                         </button>
                       </div>
-                      <p className="text-xs font-medium text-kd-text mt-1">
+                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: 4 }}>
                         {cit.reference_title || cit.note_title}
                       </p>
                       {cit.reference_authors && (
-                        <p className="text-[10px] text-kd-muted mt-0.5">
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>
                           {cit.reference_authors} ({cit.reference_year || 's.d.'})
                         </p>
                       )}
-                      <div className="mt-2 pt-1 border-t border-kd-border/40 flex items-center gap-2">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 6, borderTop: '1px solid var(--border-color)' }}>
                         <button
+                          type="button"
                           onClick={() => insertTextAtCursor(`\\cite{${cit.citation_key}}`)}
-                          className="text-[10px] text-kd-muted hover:text-yellow-500 font-mono"
+                          className="sci-btn"
+                          style={{ padding: '2px 6px', fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}
                           title="Inserir \cite{key} LaTeX"
                         >
                           + \cite
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             const author = cit.reference_authors?.split(',')[0] || 'AUTOR';
                             insertTextAtCursor(` (${author.toUpperCase()}, ${cit.reference_year || ''})`);
                           }}
-                          className="text-[10px] text-kd-muted hover:text-yellow-500"
+                          className="sci-btn"
+                          style={{ padding: '2px 6px', fontSize: '0.68rem' }}
                           title="Inserir (AUTOR, Ano) ABNT"
                         >
                           + (Autor, Ano)
@@ -944,44 +927,45 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="text-center p-6 text-xs text-kd-muted">
+                  <div style={{ textAlign: 'center', padding: '32px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     Nenhuma referência vinculada a este artigo ainda. Vá até a aba "Consultar Acervo" e clique em "+ Citar".
                   </div>
                 )}
               </div>
             )}
-          </div>
+          </aside>
         )}
       </div>
 
       {/* Export & Compilation Modal (RF-31) */}
       {isExportModalOpen && activeArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-kd-surface border border-kd-border rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="sci-modal-overlay">
+          <div className="sci-modal-dialog">
             {/* Modal Header */}
-            <div className="p-4 border-b border-kd-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Download size={18} className="text-yellow-500" />
-                <h3 className="text-sm font-bold text-kd-text">
+            <div className="sci-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Download size={18} style={{ color: 'var(--primary-yellow-border)' }} />
+                <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   Compilação e Exportação Científica (RF-31)
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsExportModalOpen(false)}
-                className="p-1 hover:bg-kd-hover rounded text-kd-muted"
+                className="sci-icon-btn"
               >
                 ✕
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+            <div className="sci-modal-body">
               {/* Formats Selection */}
               <div>
-                <label className="block font-bold text-kd-text uppercase tracking-wider mb-2">
+                <label className="sci-label">
                   1. Formato de Publicação
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="sci-format-grid">
                   {[
                     { id: 'pdf', label: 'PDF Acadêmico (.pdf)', desc: 'Layout com cabeçalho e páginas' },
                     { id: 'tex', label: 'LaTeX (.tex)', desc: 'Código puro para pdflatex / Overleaf' },
@@ -990,30 +974,28 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                   ].map(fmt => (
                     <button
                       key={fmt.id}
+                      type="button"
                       onClick={() => setExportFormat(fmt.id as any)}
-                      className={`p-3 rounded-lg border text-left transition-all ${
-                        exportFormat === fmt.id
-                          ? 'bg-yellow-500/15 border-yellow-500 text-yellow-600 dark:text-yellow-400 font-bold ring-1 ring-yellow-500'
-                          : 'bg-kd-bg border-kd-border text-kd-text hover:border-kd-border/80'
-                      }`}
+                      className={`sci-format-card ${exportFormat === fmt.id ? 'active' : ''}`}
                     >
-                      <div className="font-semibold">{fmt.label}</div>
-                      <div className="text-[10px] text-kd-muted mt-1 leading-tight">{fmt.desc}</div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt.label}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.2 }}>{fmt.desc}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Options */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-kd-border">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, paddingTop: 8, borderTop: '1px solid var(--border-color)' }}>
                 <div>
-                  <label className="block font-bold text-kd-text uppercase tracking-wider mb-1.5">
+                  <label className="sci-label">
                     Estilo de Citação
                   </label>
                   <select
                     value={exportStyle}
                     onChange={e => setExportStyle(e.target.value as any)}
-                    className="w-full bg-kd-bg border border-kd-border rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500 text-kd-text"
+                    className="sci-select"
+                    style={{ width: '100%', padding: '6px 10px' }}
                   >
                     <option value="ABNT">ABNT (SOBRENOME, Ano)</option>
                     <option value="IEEE">IEEE ([1] Autor, "Título")</option>
@@ -1022,37 +1004,34 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-kd-text uppercase tracking-wider mb-1.5">
+                  <label className="sci-label">
                     Elementos Opcionais
                   </label>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.78rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={includeAbstract}
                         onChange={e => setIncludeAbstract(e.target.checked)}
-                        className="rounded border-kd-border text-yellow-500 focus:ring-yellow-500"
                       />
-                      <span className="text-kd-text">Incluir Resumo & Palavras-chave</span>
+                      <span>Incluir Resumo & Palavras-chave</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={includeBib}
                         onChange={e => setIncludeBib(e.target.checked)}
-                        className="rounded border-kd-border text-yellow-500 focus:ring-yellow-500"
                       />
-                      <span className="text-kd-text">Incluir Lista de Referências Citadas</span>
+                      <span>Incluir Lista de Referências Citadas</span>
                     </label>
                     {exportFormat === 'md' && (
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                         <input
                           type="checkbox"
                           checked={includeFrontmatter}
                           onChange={e => setIncludeFrontmatter(e.target.checked)}
-                          className="rounded border-kd-border text-yellow-500 focus:ring-yellow-500"
                         />
-                        <span className="text-kd-text">Incluir Metadados YAML Frontmatter</span>
+                        <span>Incluir Metadados YAML Frontmatter</span>
                       </label>
                     )}
                   </div>
@@ -1061,12 +1040,13 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
 
               {/* Code Preview for Markdown / LaTeX */}
               {(exportFormat === 'md' || exportFormat === 'tex') && (
-                <div className="pt-2 border-t border-kd-border">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="font-bold text-kd-text uppercase tracking-wider">
+                <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <label className="sci-label" style={{ margin: 0 }}>
                       Pré-visualização do Código Compilado
                     </label>
                     <button
+                      type="button"
                       onClick={() => {
                         if (compilePreview) {
                           navigator.clipboard.writeText(compilePreview);
@@ -1074,13 +1054,14 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
                           setTimeout(() => setCopiedPreview(false), 2000);
                         }
                       }}
-                      className="flex items-center gap-1 text-[11px] text-yellow-600 dark:text-yellow-400 hover:underline"
+                      className="sci-btn"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
                     >
                       {copiedPreview ? <Check size={12} /> : <Copy size={12} />}
                       <span>{copiedPreview ? 'Copiado!' : 'Copiar Código'}</span>
                     </button>
                   </div>
-                  <pre className="p-3 rounded bg-kd-bg border border-kd-border font-mono text-[11px] max-h-44 overflow-y-auto whitespace-pre-wrap text-kd-text">
+                  <pre className="sci-preview-box">
                     {compiling ? 'Compilando arquivo...' : compilePreview || 'Sem conteúdo para pré-visualização.'}
                   </pre>
                 </div>
@@ -1088,17 +1069,19 @@ export const ScientificEditor: React.FC<ScientificEditorProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-kd-border bg-kd-surface/50 flex items-center justify-end gap-2">
+            <div className="sci-modal-footer">
               <button
+                type="button"
                 onClick={() => setIsExportModalOpen(false)}
-                className="px-3 py-1.5 rounded border border-kd-border hover:bg-kd-hover text-kd-muted text-xs"
+                className="sci-btn"
               >
                 Cancelar
               </button>
               <a
                 href={api.getArticleExportUrl(activeArticle.id, exportFormat, exportStyle)}
                 download
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-yellow-500 hover:bg-yellow-400 text-neutral-950 font-bold text-xs shadow-md transition-colors"
+                className="sci-btn sci-btn-primary"
+                style={{ textDecoration: 'none' }}
               >
                 <Download size={14} />
                 <span>Baixar Manuscrito Compilado (.{exportFormat})</span>
