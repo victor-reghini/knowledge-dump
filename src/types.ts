@@ -118,3 +118,48 @@ export interface SearchResult {
 }
 
 export type DirectoryViewLayout = 'list' | 'grid';
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  type: 'note' | 'reference';
+  category_id?: string | null;
+  category_name?: string | null;
+  category_color?: string | null;
+  folder_id?: string | null;
+  folder_name?: string | null;
+  file_type?: string;
+  tags?: string[];
+  degree: number;
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+  radius?: number;
+}
+
+export interface GraphLink {
+  id: string;
+  source: string;
+  target: string;
+  type: 'wikilink' | 'citation';
+  label?: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
+export interface GraphFilterOptions {
+  searchQuery?: string;
+  type?: 'all' | 'notes' | 'references';
+  categoryId?: string | null;
+  folderId?: string | null;
+  tag?: string | null;
+  minDegree: number;
+  hideIsolated: boolean;
+  showLabels: boolean;
+}

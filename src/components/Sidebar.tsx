@@ -16,7 +16,8 @@ import {
   Music,
   Image as ImageIcon,
   Presentation,
-  ChevronDown
+  ChevronDown,
+  Network
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,6 +45,8 @@ interface SidebarProps {
   onSelectReference: (ref: ReferenceFile) => void;
   onUploadPdf: (file: File) => Promise<void>;
   onDeleteReference?: (id: string) => Promise<void>;
+  onOpenGraph?: () => void;
+  isGraphOpen?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -70,7 +73,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteCategory,
   onSelectReference,
   onUploadPdf,
-  onDeleteReference
+  onDeleteReference,
+  onOpenGraph,
+  isGraphOpen
 }) => {
   const safeReferences = Array.isArray(references) ? references : [];
   const safeBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
@@ -161,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* All Notes */}
         <div>
           <button
-            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId ? 'active' : ''}`}
+            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId && !isGraphOpen ? 'active' : ''}`}
             onClick={onViewAllNotes}
           >
             <span className="nav-item-content">
@@ -171,6 +176,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="nav-badge">{safeAllNotes.length}</span>
           </button>
         </div>
+
+        {/* Knowledge Graph (RF-32, RF-33) */}
+        {onOpenGraph && (
+          <div>
+            <button
+              className={`nav-item ${isGraphOpen ? 'active' : ''}`}
+              onClick={onOpenGraph}
+              title="Abrir Grafo Interativo de Conhecimento"
+            >
+              <span className="nav-item-content">
+                <Network className="nav-item-icon" style={{ color: 'var(--primary-yellow-border)' }} />
+                <span>Grafo de Conhecimento</span>
+              </span>
+              <span className="nav-badge">{safeAllNotes.length + safeReferences.length}</span>
+            </button>
+          </div>
+        )}
 
         {/* Hierarchical Folders Tree (RF-04: Criação, Edição, Mover, Remoção) */}
         <div>

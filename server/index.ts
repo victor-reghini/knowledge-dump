@@ -1018,6 +1018,223 @@ server.delete('/api/citations/:id', async (request) => {
   return { success: true, id };
 });
 
+// Knowledge Graph API (RF-32, RF-33)
+server.get('/api/graph', async (request) => {
+  const userId = getUserId(request);
+  const { category_id, folder_id, min_degree } = request.query as {
+    category_id?: string;
+    folder_id?: string;
+    min_degree?: string;
+  };
+
+  // 1. Fetch Notes
+  let notesQuery = `
+    SELECT n.id, n.title, n.category_id, n.folder_id, n.file_type,
+           c.name as category_name, c.color as category_color,
+           f.name as folder_name
+    FROM notes n
+    LEFT JOIN categories c ON n.category_id = c.id
+    LEFT JOIN folders f ON n.folder_id = f.id
+  `;
+  const notesParams: any[] = [];
+  if (userId) {
+    notesQuery += ' WHERE (n.user_id = ? OR n.user_id IS NULL)';
+    notesParams.push(userId);
+  }
+  const rawNotes = db.prepare(notesQuery).all(...notesParams) as Array<{
+    id: string;
+    title: string;
+    category_id: string | null;
+    folder_id: string | null;
+    file_type: string | null;
+    category_name: string | null;
+    category_color: string | null;
+    folder_name: string | null;
+  }>;
+
+  // Fetch tags for notes
+  const noteTags = db.prepare(`
+    SELECT nt.note_id, t.name as tag_name
+    FROM note_tags nt
+    JOIN tags t ON nt.tag_id = t.id
+  `).all() as Array<{ note_id: string; tag_name: string }>;
+  const tagsByNote = new Map<string, string[]>();
+  for (const row of noteTags) {
+    const list = tagsByNote.get(row.note_id) || [];
+    list.push(row.tag_name);
+    tagsByNote.set(row.note_id, list);
+  }
+
+  // 2. Fetch Reference Files
+  let refsQuery = `
+    SELECT r.id, r.title, r.file_type, r.category_id, r.folder_id,
+           c.name as category_name, c.color as category_color,
+           f.name as folder_name
+    FROM references_files r
+    LEFT JOIN categories c ON r.category_id = c.id
+    LEFT JOIN folders f ON r.folder_id = f.id
+  `;
+  const refsParams: any[] = [];
+  if (userId) {
+    refsQuery += ' WHERE (r.user_id = ? OR r.user_id IS NULL)';
+    refsParams.push(userId);
+  }
+  const rawRefs = db.prepare(refsQuery).all(...refsParams) as Array<{
+    id: string;
+    title: string;
+    file_type: string;
+    category_id: string | null;
+    folder_id: string | null;
+    category_name: string | null;
+    category_color: string | null;
+    folder_name: string | null;
+  }>;
+
+  // Build node maps
+  const nodeMap = new Map<string, any>();
+  for (const n of rawNotes) {
+    nodeMap.set(n.id, {
+      id: n.id,
+      title: n.title,
+      type: 'note',
+      category_id: n.category_id,
+      category_name: n.category_name,
+      category_color: n.category_color || '#eab308',
+      folder_id: n.folder_id,
+      folder_name: n.folder_name,
+      file_type: n.file_type || 'docx',
+      tags: tagsByNote.get(n.id) || [],
+      degree: 0
+    });
+  }
+
+  for (const r of rawRefs) {
+    nodeMap.set(r.id, {
+      id: r.id,
+      title: r.title,
+      type: 'reference',
+      category_id: r.category_id,
+      category_name: r.category_name,
+      category_color: r.category_color,
+      folder_id: r.folder_id,
+      folder_name: r.folder_name,
+      file_type: r.file_type,
+      tags: [],
+      degree: 0
+    });
+  }
+
+  // Title -> note_id lookup for wikilinks resolution
+  const titleToNoteId = new Map<string, string>();
+  for (const n of rawNotes) {
+    titleToNoteId.set(n.title.toLowerCase().trim(), n.id);
+  }
+
+  // 3. Wikilinks (edges between notes)
+  const wikilinks = db.prepare(`
+    SELECT w.id, w.source_note_id, w.target_title, w.target_anchor, w.target_note_id
+    FROM wikilinks w
+  `).all() as Array<{
+    id: string;
+    source_note_id: string;
+    target_title: string;
+    target_anchor: string | null;
+    target_note_id: string | null;
+  }>;
+
+  const links: Array<{
+    id: string;
+    source: string;
+    target: string;
+    type: 'wikilink' | 'citation';
+    label?: string;
+  }> = [];
+
+  const existingLinkKeys = new Set<string>();
+
+  for (const wl of wikilinks) {
+    if (!nodeMap.has(wl.source_note_id)) continue;
+    let targetId = wl.target_note_id;
+    if (!targetId || !nodeMap.has(targetId)) {
+      targetId = titleToNoteId.get(wl.target_title.toLowerCase().trim()) || null;
+    }
+    if (targetId && nodeMap.has(targetId) && targetId !== wl.source_note_id) {
+      const linkKey = `wl-${wl.source_note_id}-${targetId}`;
+      if (!existingLinkKeys.has(linkKey)) {
+        existingLinkKeys.add(linkKey);
+        links.push({
+          id: wl.id || `wl-${Date.now()}-${Math.random()}`,
+          source: wl.source_note_id,
+          target: targetId,
+          type: 'wikilink',
+          label: wl.target_anchor ? `#${wl.target_anchor}` : undefined
+        });
+        nodeMap.get(wl.source_note_id).degree++;
+        nodeMap.get(targetId).degree++;
+      }
+    }
+  }
+
+  // 4. Citations (edges from notes to reference files)
+  const citations = db.prepare(`
+    SELECT c.id, c.note_id, c.reference_id, c.quote_text, c.page_number
+    FROM citations c
+  `).all() as Array<{
+    id: string;
+    note_id: string;
+    reference_id: string;
+    quote_text: string;
+    page_number: number | null;
+  }>;
+
+  for (const cit of citations) {
+    if (nodeMap.has(cit.note_id) && nodeMap.has(cit.reference_id)) {
+      const linkKey = `cit-${cit.note_id}-${cit.reference_id}`;
+      if (!existingLinkKeys.has(linkKey)) {
+        existingLinkKeys.add(linkKey);
+        links.push({
+          id: cit.id,
+          source: cit.note_id,
+          target: cit.reference_id,
+          type: 'citation',
+          label: cit.page_number ? `pág. ${cit.page_number}` : undefined
+        });
+        nodeMap.get(cit.note_id).degree++;
+        nodeMap.get(cit.reference_id).degree++;
+      }
+    }
+  }
+
+  let nodes = Array.from(nodeMap.values());
+
+  // Optional backend filtering
+  if (category_id) {
+    nodes = nodes.filter(n => n.category_id === category_id);
+    const validNodeIds = new Set(nodes.map(n => n.id));
+    const filteredLinks = links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+    return { nodes, links: filteredLinks };
+  }
+
+  if (folder_id) {
+    nodes = nodes.filter(n => n.folder_id === folder_id);
+    const validNodeIds = new Set(nodes.map(n => n.id));
+    const filteredLinks = links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+    return { nodes, links: filteredLinks };
+  }
+
+  if (min_degree) {
+    const minD = parseInt(min_degree, 10);
+    if (!isNaN(minD) && minD > 0) {
+      nodes = nodes.filter(n => n.degree >= minD);
+      const validNodeIds = new Set(nodes.map(n => n.id));
+      const filteredLinks = links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+      return { nodes, links: filteredLinks };
+    }
+  }
+
+  return { nodes, links };
+});
+
 // FTS5 Global Search
 server.get('/api/search', async (request) => {
   const { q } = request.query as { q?: string };

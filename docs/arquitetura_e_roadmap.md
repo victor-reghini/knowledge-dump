@@ -75,8 +75,8 @@ gantt
     Testes de Carga com PDFs Volumosos (100MB+) (Ativ 2.4)     :done, b4, 2026-10-30, 2026-10-30
 
     section Fase 3: Estudos & Síntese
-    Visualizador de Grafo Interativo (Ativ 3.1)                :active, c1, 2026-10-30, 8d
-    Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :c2, after c1, 10d
+    Visualizador de Grafo Interativo (Ativ 3.1)                :done, c1, 2026-10-30, 2026-10-31
+    Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :active, c2, after c1, 10d
     Modo de Redação e Exportação Científica (Ativ 3.3)         :c3, after c2, 7d
     Validação do Fluxo de Estudos (Ativ 3.4)                   :c4, after c3, 5d
 
@@ -259,11 +259,18 @@ gantt
 
 ### Fase 3: Grafo de Conhecimento, Aprendizagem & Produção Científica
 
-#### Atividade 3.1: Mapa Interativo em Grafo [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/3.1-mapa-grafo-interativo`
+#### Atividade 3.1: Mapa Interativo em Grafo [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/3.1-mapa-grafo-interativo`
 - **Responsável:** `agent-development`
-- **Descrição:** Implementar visualização interativa do grafo com física de forças (Force-Graph) e filtros por densidade e categorias.
+- **Descrição:** Implementar visualização interativa do grafo com física de forças (Force-Graph) e filtros por densidade e categorias (RF-32, RF-33).
+- **Entregas Realizadas:**
+  - Endpoint `GET /api/graph` no backend Fastify/SQLite compilando nós (notas e referências), arestas direcionais de Wikilinks com suporte a âncoras, arestas de citações bibliográficas e cálculo automático de densidade (`degree`).
+  - Motor gráfico interativo [`GraphView.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/GraphView.tsx) em HTML5 Canvas 2D de 60fps com simulação de física de forças (repulsão Coulomb, atração Hooke em arestas e gravidade de centralização), suporte a telas Retina/HiDPI, zoom com scroll e arrastar de câmera (pan), arrastar e soltar (drag & drop) de nós.
+  - Painel de filtros em tempo real (RF-33): isolamento por tipo (Todas, Notas, Fontes), filtro por categoria com identificação de cores, busca textual instantânea por nós ou tags, slider de densidade mínima de conexões (`min_degree`), alternador para ocultar nós isolados e exibição de rótulos.
+  - Interatividade e navegação rápida: realce inteligente com atenuação (dimming) de elementos não conectados no hover, cartão tooltip com metadados e contagem de conexões, e salto direto com 1 clique para a nota no editor ou fonte no visualizador correspondente.
+  - Integrações na navegação do aplicativo em [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx) e [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx).
+  - Suíte de testes automatizados [`tests/atividade-3.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.1.test.ts) cobrindo mapeamento de nós, conexões de Wikilinks e citações, graus de densidade, filtros de categoria e integridade referencial.
 
 #### Atividade 3.2: Módulo de Planos de Estudo e Exercícios [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

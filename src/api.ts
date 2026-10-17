@@ -1,4 +1,4 @@
-import { Note, Folder, Category, Tag, Bookmark, SearchResult, User, ReferenceFile, Citation } from './types';
+import { Note, Folder, Category, Tag, Bookmark, SearchResult, User, ReferenceFile, Citation, GraphData } from './types';
 
 const BASE_URL = '/api';
 
@@ -369,5 +369,23 @@ export const api = {
     }
     const data = await res.json();
     return Array.isArray(data) ? data : [];
+  },
+
+  // Knowledge Graph (RF-32, RF-33)
+  async getGraphData(params?: { category_id?: string; folder_id?: string; min_degree?: number }): Promise<GraphData> {
+    const query = new URLSearchParams();
+    if (params?.category_id) query.append('category_id', params.category_id);
+    if (params?.folder_id) query.append('folder_id', params.folder_id);
+    if (params?.min_degree !== undefined) query.append('min_degree', String(params.min_degree));
+
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${BASE_URL}/graph${qs}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      console.warn('Falha ao obter dados do grafo:', res.status);
+      return { nodes: [], links: [] };
+    }
+    return res.json();
   }
 };

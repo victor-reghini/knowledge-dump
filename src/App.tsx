@@ -10,6 +10,7 @@ import { ShareModal } from './components/ShareModal';
 import { AuthModal } from './components/AuthModal';
 import { PublicNoteView } from './components/PublicNoteView';
 import { ReferenceViewer } from './components/ReferenceViewer';
+import { GraphView } from './components/GraphView';
 import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -28,7 +29,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // View and Split-View states (Individual reference viewing & Dual Split View)
-  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference'>('directory');
+  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph'>('directory');
   const [isSplitViewOpen, setIsSplitViewOpen] = useState(false);
   const [splitPaneMode, setSplitPaneMode] = useState<'reference' | 'note'>('reference');
   const [splitSecondaryNoteId, setSplitSecondaryNoteId] = useState<string | null>(null);
@@ -611,6 +612,8 @@ export const App: React.FC = () => {
         onSelectReference={(ref) => handleSelectReference(ref, false)}
         onUploadPdf={handleUploadPdf}
         onDeleteReference={handleDeleteReference}
+        onOpenGraph={() => setMainViewMode('graph')}
+        isGraphOpen={mainViewMode === 'graph'}
       />
 
       <div className="main-wrapper">
@@ -621,6 +624,8 @@ export const App: React.FC = () => {
           notesCount={notes.length}
           currentUser={currentUser}
           onOpenAuth={() => setIsAuthOpen(true)}
+          isGraphOpen={mainViewMode === 'graph'}
+          onToggleGraph={() => setMainViewMode((prev) => (prev === 'graph' ? 'directory' : 'graph'))}
           isSplitViewOpen={isSplitViewOpen}
           onToggleSplitView={() => {
             if (!isSplitViewOpen && !activeReference && references.length > 0) {
@@ -637,7 +642,7 @@ export const App: React.FC = () => {
             </div>
           ) : (
             <div className={`split-view-container ${isSplitViewOpen ? 'split-active' : ''}`}>
-              {/* Main Content Area: Note, Standalone Reference, or Directory */}
+              {/* Main Content Area: Note, Standalone Reference, Graph, or Directory */}
               <div className="split-view-main">
                 {mainViewMode === 'note' && activeNote ? (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -735,6 +740,22 @@ export const App: React.FC = () => {
                       />
                     </div>
                   </div>
+                ) : mainViewMode === 'graph' ? (
+                  /* Interactive Knowledge Graph View (RF-32, RF-33) */
+                  <GraphView
+                    categories={categories}
+                    folders={folders}
+                    onSelectNote={(noteId) => {
+                      handleSelectNote(noteId);
+                    }}
+                    onSelectReference={(refId) => {
+                      const ref = references.find((r) => r.id === refId);
+                      if (ref) {
+                        handleSelectReference(ref, false);
+                      }
+                    }}
+                    onClose={() => setMainViewMode('directory')}
+                  />
                 ) : (
                   /* Directory View (List or Grid view with Notes & References) */
                   <NotesDirectoryView

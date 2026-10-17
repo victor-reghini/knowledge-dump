@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2 } from 'lucide-react';
+import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network } from 'lucide-react';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -11,6 +11,8 @@ interface HeaderProps {
   onOpenAuth: () => void;
   isSplitViewOpen?: boolean;
   onToggleSplitView?: () => void;
+  isGraphOpen?: boolean;
+  onToggleGraph?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,7 +23,9 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onOpenAuth,
   isSplitViewOpen,
-  onToggleSplitView
+  onToggleSplitView,
+  isGraphOpen,
+  onToggleGraph
 }) => {
   return (
     <header className="top-header" role="banner">
@@ -38,6 +42,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
+        {onToggleGraph && (
+          <button
+            className={`user-badge-btn ${isGraphOpen ? 'active' : ''}`}
+            onClick={onToggleGraph}
+            title={isGraphOpen ? 'Sair do Grafo de Conhecimento' : 'Abrir Mapa Interativo em Grafo (RF-32)'}
+            style={{
+              backgroundColor: isGraphOpen ? 'var(--primary-yellow-light)' : undefined,
+              borderColor: isGraphOpen ? 'var(--primary-yellow-border)' : undefined,
+              color: isGraphOpen ? 'var(--primary-yellow-text)' : undefined
+            }}
+          >
+            <Network size={15} />
+            <span>{isGraphOpen ? 'Grafo Ativo' : 'Grafo'}</span>
+          </button>
+        )}
+
         {onToggleSplitView && (
           <button
             className={`user-badge-btn ${isSplitViewOpen ? 'active' : ''}`}
