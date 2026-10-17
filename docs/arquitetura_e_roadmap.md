@@ -78,10 +78,10 @@ gantt
     Visualizador de Grafo Interativo (Ativ 3.1)                :done, c1, 2026-10-30, 2026-10-31
     Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :done, c2, after c1, 10d
     Modo de Redação e Exportação Científica (Ativ 3.3)         :done, c3, after c2, 7d
-    Validação do Fluxo de Estudos (Ativ 3.4)                   :active, c4, after c3, 5d
+    Validação do Fluxo de Estudos (Ativ 3.4)                   :done, c4, after c3, 5d
 
     section Fase 4: Sync PWA Mobile & Google Drive
-    Serviço de Sincronização para PWA Mobile (Ativ 4.1)        :d1, after c4, 10d
+    Serviço de Sincronização para PWA Mobile (Ativ 4.1)        :active, d1, after c4, 10d
     Módulo de Backup e Upload para Google Drive (Ativ 4.2)     :d2, after d1, 6d
     Testes de Resiliência Offline em Mobile (Ativ 4.3)         :d3, after d2, 6d
 ```
@@ -318,11 +318,29 @@ gantt
   - Navegação integrada em [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx), [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) e [`App.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/App.tsx).
   - Suíte de testes automatizados [`tests/atividade-3.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.3.test.ts) validando todo o ciclo CRUD, gaveta de citações e compilações multi-formato.
 
-#### Atividade 3.4: Validação do Fluxo de Estudos [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `test/3.4-validacao-fluxo-estudos`
+#### Atividade 3.4: Validação do Fluxo de Estudos [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `test/3.4-validacao-fluxo-estudos`
 - **Responsável:** `agent-testing`
-- **Descrição:** Validar o Cenário 3 de BDD (exercício com vínculo conceitual) e consistência das exportações.
+- **Descrição:** Validar o Cenário 3 de BDD (exercício com vínculo conceitual), simulados com diagnóstico e consistência das exportações.
+- **Entregas Realizadas:**
+  - Homologação executável do **Cenário 3 de BDD** em [`tests/atividade-3.4.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.4.test.ts):
+    - Submissão incorreta exibe imediatamente o gabarito oficial com explicação técnica comentada.
+    - Exposição dos metadados e IDs da anotação teórica (`note_id`, `note_title`) e do paper citado (`reference_id`, `reference_title`).
+    - Navegação imediata: verificação de que os links teóricos recuperam integralmente o texto explicativo da nota e os metadados do documento de referência.
+    - Submissão correta confirma acerto e feedback positivo.
+  - Validação do fluxo de **Simulado Avaliativo e Diagnóstico de Erros (RF-25)**:
+    - Compilação de questões por trilha com opções estruturadas e temporizador regressivo.
+    - Submissão de respostas com cálculo exato de aproveitamento percentual (`score: 50%`).
+    - Geração do relatório diagnóstico de tópicos deficientes (`review_recommendations`), ranqueados por taxa de erro com links para revisão conceitual imediata.
+  - Validação de integridade e robustez de **Exportações Científicas Multi-formato (RF-31)**:
+    - Formatação normativa de citações nos estilos ABNT (caixa alta com DOI), IEEE (numeração entre colchetes) e APA (autor e ano).
+    - Resiliência contra referências com dados incompletos (autor anônimo e sem data `s.d.`).
+    - Escapamento de fórmulas matemáticas e caracteres especiais em LaTeX (`&`, `%`, `$`, `\mathcal{L}`).
+    - Validação de integridade física dos binários: DOCX (estrutura zip OpenXML com `word/document.xml`, `[Content_Types].xml`) e PDF (PDF 1.4 com tabela `xref`, `trailer` e `%%EOF`).
+  - Validação de templates de **Fichamentos e Resumos de Livros (RF-26)** com teses centrais e conexões Wikilink.
+  - Publicação do documento mestre de QA e Matriz de Rastreabilidade em [`docs/testes.md`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/docs/testes.md).
+  - Conclusão integral da **Fase 3: Grafo de Conhecimento, Aprendizagem & Produção Científica** (Atividades 3.1 a 3.4 concluídas com 119 testes automatizados aprovados).
 
 ---
 
