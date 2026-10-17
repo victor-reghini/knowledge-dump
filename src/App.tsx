@@ -15,7 +15,7 @@ import { StudyModule } from './components/StudyModule';
 import { ScientificEditor } from './components/ScientificEditor';
 import { BackupModal } from './components/BackupModal';
 import { googleDriveSync } from './utils/googleDriveSync';
-import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
+import { ArrowLeft, Columns, X, FileText, Trash2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -333,14 +333,20 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteReference = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este arquivo de referência?')) return;
     try {
       await api.deleteReference(id);
       const updatedRefs = await api.getReferences();
       setReferences(updatedRefs);
       if (activeReference?.id === id) {
-        setActiveReference(updatedRefs[0] || null);
+        const nextRef = updatedRefs[0] || null;
+        setActiveReference(nextRef);
+        if (!nextRef || mainViewMode === 'reference') {
+          setMainViewMode('directory');
+        }
         if (updatedRefs.length === 0) setIsSplitViewOpen(false);
       }
+      googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao excluir referência:', err);
     }
@@ -529,7 +535,15 @@ export const App: React.FC = () => {
     try {
       await api.deleteNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
-      setActiveNoteId(null);
+      if (activeNoteId === id) {
+        setActiveNoteId(null);
+        setActiveNote(null);
+        setMainViewMode('directory');
+      }
+      if (splitSecondaryNoteId === id) {
+        setSplitSecondaryNoteId(null);
+        setSplitSecondaryNote(null);
+      }
       googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao excluir nota:', err);
@@ -652,6 +666,7 @@ export const App: React.FC = () => {
         onSelectReference={(ref) => handleSelectReference(ref, false)}
         onUploadPdf={handleUploadPdf}
         onDeleteReference={handleDeleteReference}
+        onDeleteNote={handleDeleteNote}
         onOpenGraph={() => setMainViewMode('graph')}
         isGraphOpen={mainViewMode === 'graph'}
         onOpenStudies={() => setMainViewMode('studies')}
@@ -769,15 +784,26 @@ export const App: React.FC = () => {
                         </span>
                       </div>
 
-                      <button
-                        className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
-                        onClick={() => setIsSplitViewOpen((prev) => !prev)}
-                        title="Dividir tela com outra nota ou referência"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                      >
-                        <Columns size={14} />
-                        <span>{isSplitViewOpen ? 'Fechar Split' : 'Dividir Tela'}</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                          className="toolbar-btn"
+                          onClick={() => handleDeleteReference(activeReference.id)}
+                          style={{ color: 'var(--wikilink-orphan)', display: 'flex', alignItems: 'center', gap: 6 }}
+                          title="Excluir arquivo de referência"
+                        >
+                          <Trash2 size={14} />
+                          <span>Excluir</span>
+                        </button>
+                        <button
+                          className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
+                          onClick={() => setIsSplitViewOpen((prev) => !prev)}
+                          title="Dividir tela com outra nota ou referência"
+                          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <Columns size={14} />
+                          <span>{isSplitViewOpen ? 'Fechar Split' : 'Dividir Tela'}</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ flex: 1, height: 'calc(100% - 45px)', overflow: 'hidden' }}>
@@ -856,6 +882,8 @@ export const App: React.FC = () => {
                     onUpdateReference={handleUpdateReference}
                     onNewNote={handleCreateNote}
                     onOpenShareModal={(note) => setShareModalNote(note)}
+                    onDeleteNote={handleDeleteNote}
+                    onDeleteReference={handleDeleteReference}
                   />
                 )}
               </div>

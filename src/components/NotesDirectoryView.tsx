@@ -21,7 +21,8 @@ import {
   Check,
   X,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
 
 interface NotesDirectoryViewProps {
@@ -37,6 +38,8 @@ interface NotesDirectoryViewProps {
   onUpdateReference?: (id: string, data: Partial<ReferenceFile>) => Promise<void>;
   onNewNote: (fileType?: 'docx' | 'md') => void;
   onOpenShareModal: (note: Note) => void;
+  onDeleteNote?: (id: string) => Promise<void>;
+  onDeleteReference?: (id: string) => Promise<void>;
 }
 
 export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
@@ -51,7 +54,9 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
   onSelectReference,
   onUpdateReference,
   onNewNote,
-  onOpenShareModal
+  onOpenShareModal,
+  onDeleteNote,
+  onDeleteReference
 }) => {
   const [layout, setLayout] = useState<DirectoryViewLayout>('grid');
   const [filterText, setFilterText] = useState('');
@@ -391,6 +396,19 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                           <FolderInput size={13} />
                         </button>
                       )}
+                      {onDeleteReference && (
+                        <button
+                          className="icon-btn"
+                          style={{ width: 26, height: 26, color: 'var(--wikilink-orphan)' }}
+                          title="Excluir arquivo de referência"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteReference(ref.id);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                       <span title="Abrir no leitor de documentos">
                         <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} />
                       </span>
@@ -448,6 +466,19 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                     >
                       <Share2 size={13} />
                     </button>
+                    {onDeleteNote && (
+                      <button
+                        className="icon-btn"
+                        style={{ width: 26, height: 26, color: 'var(--wikilink-orphan)' }}
+                        title="Excluir Nota"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteNote(note.id);
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                     <span>{new Date(note.updated_at || note.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
@@ -536,6 +567,20 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                       </button>
                     )}
 
+                    {onDeleteReference && (
+                      <button
+                        className="icon-btn"
+                        style={{ width: 28, height: 28, color: 'var(--wikilink-orphan)' }}
+                        title="Excluir arquivo de referência"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteReference(ref.id);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+
                     <span title="Abrir referência">
                       <ExternalLink size={14} style={{ color: 'var(--text-muted)' }} />
                     </span>
@@ -607,6 +652,20 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                   >
                     <Share2 size={14} />
                   </button>
+
+                  {onDeleteNote && (
+                    <button
+                      className="icon-btn"
+                      style={{ width: 28, height: 28, color: 'var(--wikilink-orphan)' }}
+                      title="Excluir Nota"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteNote(note.id);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     <Calendar size={13} />

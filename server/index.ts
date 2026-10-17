@@ -651,17 +651,26 @@ server.get('/api/notes/:id/export', async (request, reply) => {
 });
 
 // Delete Note
-server.delete('/api/notes/:id', async (request) => {
+server.delete('/api/notes/:id', async (request, reply) => {
   const userId = getUserId(request);
   const { id } = request.params as { id: string };
-  recordTombstone('note', id, userId);
-  db.prepare('DELETE FROM notes WHERE id = ?').run(id);
-  if (hasFts5) {
-    try {
-      db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
-    } catch {}
+  try {
+    recordTombstone('note', id, userId);
+    try { db.prepare('DELETE FROM note_tags WHERE note_id = ?').run(id); } catch {}
+    try { db.prepare('DELETE FROM wikilinks WHERE source_note_id = ? OR target_note_id = ?').run(id, id); } catch {}
+    try { db.prepare('DELETE FROM citations WHERE note_id = ?').run(id); } catch {}
+    try { db.prepare('DELETE FROM bookmarks WHERE note_id = ?').run(id); } catch {}
+    db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+    if (hasFts5) {
+      try {
+        db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(id);
+      } catch {}
+    }
+    return { success: true, id };
+  } catch (err: any) {
+    request.log.error(err);
+    return reply.status(500).send({ error: err.message || 'Erro ao remover nota' });
   }
-  return { success: true, id };
 });
 
 // Bookmarks (RF-05)
@@ -1078,13 +1087,30 @@ server.put('/api/references/:id', async (request, reply) => {
 });
 
 // Delete Reference
-server.delete('/api/references/:id', async (request) => {
+server.delete('/api/references/:id', async (request, reply) => {
   const userId = getUserId(request);
   const { id } = request.params as { id: string };
-  recordTombstone('reference', id, userId);
-  db.prepare('DELETE FROM citations WHERE reference_id = ?').run(id);
-  db.prepare('DELETE FROM references_files WHERE id = ?').run(id);
-  return { success: true, id };
+  try {
+    const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(id) as { file_path: string } | undefined;
+    if (ref?.file_path) {
+      try {
+        const fullPath = path.isAbsolute(ref.file_path) ? ref.file_path : path.join(DATA_DIR, ref.file_path);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (fileErr) {
+        request.log.warn(`Erro ao excluir arquivo físico: ${fileErr}`);
+      }
+    }
+    recordTombstone('reference', id, userId);
+    try { db.prepare('DELETE FROM citations WHERE reference_id = ?').run(id); } catch {}
+    try { db.prepare('DELETE FROM bookmarks WHERE reference_id = ?').run(id); } catch {}
+    db.prepare('DELETE FROM references_files WHERE id = ?').run(id);
+    return { success: true, id };
+  } catch (err: any) {
+    request.log.error(err);
+    return reply.status(500).send({ error: err.message || 'Erro ao remover referência' });
+  }
 });
 
 // Citations

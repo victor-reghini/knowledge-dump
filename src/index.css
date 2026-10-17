@@ -1408,7 +1408,8 @@ a:hover {
   border-radius: 3px;
 }
 
-.ref-nav-wrapper:hover .ref-delete-btn {
+.ref-nav-wrapper:hover .ref-delete-btn,
+.ref-nav-wrapper:focus-within .ref-delete-btn {
   display: flex;
 }
 

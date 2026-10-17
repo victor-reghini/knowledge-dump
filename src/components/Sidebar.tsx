@@ -48,6 +48,7 @@ interface SidebarProps {
   onSelectReference: (ref: ReferenceFile) => void;
   onUploadPdf: (file: File) => Promise<void>;
   onDeleteReference?: (id: string) => Promise<void>;
+  onDeleteNote?: (id: string) => Promise<void>;
   onOpenGraph?: () => void;
   isGraphOpen?: boolean;
   onOpenStudies?: () => void;
@@ -83,6 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectReference,
   onUploadPdf,
   onDeleteReference,
+  onDeleteNote,
   onOpenGraph,
   isGraphOpen,
   onOpenStudies,
@@ -357,9 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title="Excluir referência"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Deseja remover a referência "${ref.title}"?`)) {
-                        onDeleteReference(ref.id);
-                      }
+                      onDeleteReference(ref.id);
                     }}
                   >
                     <Trash2 size={12} />
@@ -418,18 +418,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {folderOrCatRefs.map((ref) => {
                   const isActive = activeReferenceId === ref.id;
                   return (
-                    <button
-                      key={ref.id}
-                      className={`nav-item ${isActive ? 'active' : ''}`}
-                      onClick={() => onSelectReference(ref)}
-                      title={`Arquivo: ${ref.title}`}
-                      style={{ borderLeft: '2px solid var(--primary-yellow-border)' }}
-                    >
-                      <span className="nav-item-content">
-                        <FileText size={14} className="nav-item-icon" style={{ color: '#ef4444' }} />
-                        <span className="truncate">{ref.title}</span>
-                      </span>
-                    </button>
+                    <div key={ref.id} className="ref-nav-wrapper">
+                      <button
+                        className={`nav-item ${isActive ? 'active' : ''}`}
+                        onClick={() => onSelectReference(ref)}
+                        title={`Arquivo: ${ref.title}`}
+                        style={{ borderLeft: '2px solid var(--primary-yellow-border)' }}
+                      >
+                        <span className="nav-item-content">
+                          <FileText size={14} className="nav-item-icon" style={{ color: '#ef4444' }} />
+                          <span className="truncate">{ref.title}</span>
+                        </span>
+                      </button>
+                      {onDeleteReference && (
+                        <button
+                          type="button"
+                          className="ref-delete-btn"
+                          title="Excluir referência"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteReference(ref.id);
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
 
@@ -437,22 +451,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {notes.map((note) => {
                   const isActive = activeNoteId === note.id;
                   return (
-                    <button
-                      key={note.id}
-                      className={`nav-item ${isActive ? 'active' : ''}`}
-                      onClick={() => onSelectNote(note.id)}
-                    >
-                      <span className="nav-item-content">
-                        {note.is_favorite ? (
-                          <Star size={14} className="nav-item-icon" style={{ color: '#eab308' }} />
-                        ) : note.is_public ? (
-                          <Globe size={14} className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
-                        ) : (
-                          <FileText size={14} className="nav-item-icon" />
-                        )}
-                        <span>{note.title}</span>
-                      </span>
-                    </button>
+                    <div key={note.id} className="ref-nav-wrapper">
+                      <button
+                        className={`nav-item ${isActive ? 'active' : ''}`}
+                        onClick={() => onSelectNote(note.id)}
+                      >
+                        <span className="nav-item-content">
+                          {note.is_favorite ? (
+                            <Star size={14} className="nav-item-icon" style={{ color: '#eab308' }} />
+                          ) : note.is_public ? (
+                            <Globe size={14} className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
+                          ) : (
+                            <FileText size={14} className="nav-item-icon" />
+                          )}
+                          <span className="truncate">{note.title}</span>
+                        </span>
+                      </button>
+                      {onDeleteNote && (
+                        <button
+                          type="button"
+                          className="ref-delete-btn"
+                          title="Excluir nota"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteNote(note.id);
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </>

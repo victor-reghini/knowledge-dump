@@ -257,6 +257,10 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Falha ao excluir nota' }));
+      throw new Error(err.error || 'Falha ao excluir nota');
+    }
     return res.json();
   },
 
@@ -367,6 +371,10 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Falha ao excluir referência' }));
+      throw new Error(err.error || 'Falha ao excluir referência');
+    }
     return res.json();
   },
 
