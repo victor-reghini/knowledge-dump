@@ -172,7 +172,11 @@ class GoogleDriveSyncManager {
           scope: 'email profile https://www.googleapis.com/auth/drive.file',
           callback: async (tokenResponse: any) => {
             if (tokenResponse.error) {
-              return reject(new Error(tokenResponse.error_description || tokenResponse.error));
+              let msg = tokenResponse.error_description || tokenResponse.error;
+              if (tokenResponse.error === 'access_denied') {
+                msg = 'Acesso negado (403): Seu e-mail precisa ser adicionado em "Usuários de teste" na Tela de Consentimento OAuth do Google Cloud Console, ou a Google Drive API precisa ser ativada.';
+              }
+              return reject(new Error(msg));
             }
             if (!tokenResponse.access_token) {
               return reject(new Error('Nenhum access token recebido do Google'));

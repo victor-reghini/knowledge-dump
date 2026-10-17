@@ -251,4 +251,16 @@ describe('Atividade 4.2: Backup Geral com Upload Direto para o Google Drive', ()
     // Limpeza
     db.prepare('DELETE FROM users WHERE id = ?').run(autoUserId);
   });
+
+  test('4.2.9: Endpoint GET /api/auth/google/config deve retornar o Google Client ID configurado', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/auth/google/config'
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(typeof body.clientId === 'string');
+    assert.equal(body.clientId, process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '');
+  });
 });

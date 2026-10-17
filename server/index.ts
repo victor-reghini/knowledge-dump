@@ -104,14 +104,65 @@ server.get('/api/auth/me', async (request) => {
   return { user: user || { id: 'user-admin', username: 'admin', name: 'Pesquisador' } };
 });
 
+server.get('/api/auth/google/config', async () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+  return { clientId };
+});
+
 server.post('/api/auth/google', async (request, reply) => {
-  const { email, name, google_id, access_token, avatar_url } = request.body as {
+  const body = (request.body || {}) as {
     email?: string;
     name?: string;
     google_id?: string;
     access_token?: string;
     avatar_url?: string;
+    code?: string;
   };
+
+  let email = body.email;
+  let name = body.name;
+  let google_id = body.google_id;
+  let access_token = body.access_token;
+  let avatar_url = body.avatar_url;
+
+  // Se receber authorization code, troca por access token usando client_id e client_secret do ambiente
+  if (body.code && !access_token) {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+    if (clientId && clientSecret) {
+      try {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: body.code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: 'postmessage',
+          grant_type: 'authorization_code'
+        })
+      });
+      if (tokenRes.ok) {
+        const tokenData = (await tokenRes.json()) as any;
+        access_token = tokenData.access_token || access_token;
+        if (access_token && !email) {
+          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${access_token}` }
+          });
+          if (userInfoRes.ok) {
+            const userInfo = (await userInfoRes.json()) as any;
+            email = userInfo.email || email;
+            name = userInfo.name || name;
+            google_id = userInfo.sub || google_id;
+            avatar_url = userInfo.picture || avatar_url;
+          }
+        }
+      }
+    } catch (tokenErr) {
+      // prossegue com os dados fornecidos no body
+    }
+  }
+}
 
   if (!email || !email.trim()) {
     return reply.status(400).send({ error: 'E-mail do Google é obrigatório' });
