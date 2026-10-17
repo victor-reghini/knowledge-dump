@@ -66,6 +66,25 @@ export const api = {
     return res.json();
   },
 
+  async loginWithGoogle(data: {
+    email: string;
+    name?: string;
+    google_id?: string;
+    access_token?: string;
+    avatar_url?: string;
+  }): Promise<{ user: User; access_token?: string }> {
+    const res = await fetch(`${BASE_URL}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha ao autenticar com o Google');
+    }
+    return res.json();
+  },
+
   async getMe(): Promise<{ user: User }> {
     const res = await fetch(`${BASE_URL}/auth/me`, {
       headers: getAuthHeaders()

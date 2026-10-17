@@ -2,6 +2,10 @@ export interface User {
   id: string;
   username: string;
   name: string;
+  email?: string;
+  google_id?: string;
+  avatar_url?: string;
+  gdrive_auto_sync?: boolean;
 }
 
 export interface Folder {

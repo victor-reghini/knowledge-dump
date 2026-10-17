@@ -100,8 +100,61 @@ server.post('/api/auth/register', async (request, reply) => {
 
 server.get('/api/auth/me', async (request) => {
   const userId = getUserId(request);
-  const user = db.prepare('SELECT id, username, name, created_at FROM users WHERE id = ?').get(userId);
+  const user = db.prepare('SELECT id, username, name, email, google_id, avatar_url, gdrive_auto_sync, created_at FROM users WHERE id = ?').get(userId);
   return { user: user || { id: 'user-admin', username: 'admin', name: 'Pesquisador' } };
+});
+
+server.post('/api/auth/google', async (request, reply) => {
+  const { email, name, google_id, access_token, avatar_url } = request.body as {
+    email?: string;
+    name?: string;
+    google_id?: string;
+    access_token?: string;
+    avatar_url?: string;
+  };
+
+  if (!email || !email.trim()) {
+    return reply.status(400).send({ error: 'E-mail do Google é obrigatório' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const displayName = (name && name.trim()) || cleanEmail.split('@')[0];
+
+  let user = db.prepare('SELECT id, username, name, email, google_id, avatar_url, gdrive_auto_sync, created_at FROM users WHERE google_id = ? OR email = ? OR username = ?').get(
+    google_id || '',
+    cleanEmail,
+    cleanEmail
+  ) as any;
+
+  if (user) {
+    db.prepare(`
+      UPDATE users
+      SET google_id = COALESCE(?, google_id),
+          email = ?,
+          name = COALESCE(?, name),
+          avatar_url = COALESCE(?, avatar_url),
+          gdrive_token = COALESCE(?, gdrive_token)
+      WHERE id = ?
+    `).run(
+      google_id || null,
+      cleanEmail,
+      displayName,
+      avatar_url || null,
+      access_token || null,
+      user.id
+    );
+    user = db.prepare('SELECT id, username, name, email, google_id, avatar_url, gdrive_auto_sync, created_at FROM users WHERE id = ?').get(user.id);
+  } else {
+    const id = `user-google-${Date.now()}`;
+    const username = cleanEmail.split('@')[0] || `user_${Date.now()}`;
+    db.prepare(`
+      INSERT INTO users (id, username, password_hash, name, email, google_id, avatar_url, gdrive_token, gdrive_auto_sync)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `).run(id, username, 'google-oauth', displayName, cleanEmail, google_id || null, avatar_url || null, access_token || null);
+    user = { id, username, name: displayName, email: cleanEmail, google_id: google_id || null, avatar_url: avatar_url || null, gdrive_auto_sync: 1, created_at: new Date().toISOString() };
+  }
+
+  return { user, access_token: access_token || null };
 });
 
 // --- PUBLIC SHARING ROUTES (RF-37) ---
@@ -2508,11 +2561,18 @@ server.get('/api/backup/download', async (request, reply) => {
 server.post('/api/backup/google-drive/upload', async (request, reply) => {
   const userId = getUserId(request);
   const body = (request.body || {}) as { access_token?: string };
-  const accessToken = body.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN || '';
+  let accessToken = body.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN || '';
+
+  if (!accessToken.trim()) {
+    const userRow = db.prepare('SELECT gdrive_token FROM users WHERE id = ?').get(userId) as any;
+    if (userRow?.gdrive_token) {
+      accessToken = userRow.gdrive_token;
+    }
+  }
 
   if (!accessToken.trim()) {
     return reply.status(400).send({
-      error: 'Access Token do Google Drive não fornecido. Insira um token OAuth2 válido ou configure GOOGLE_DRIVE_ACCESS_TOKEN.'
+      error: 'Access Token do Google Drive não fornecido. Conecte com sua Conta Google ou insira um token OAuth2.'
     });
   }
 

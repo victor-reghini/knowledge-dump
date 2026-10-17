@@ -37,6 +37,11 @@ export function initDatabase() {
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
+      email TEXT,
+      google_id TEXT,
+      avatar_url TEXT,
+      gdrive_token TEXT,
+      gdrive_auto_sync INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -246,6 +251,11 @@ export function initDatabase() {
   }
 
   // Migrations for existing databases
+  try { db.exec("ALTER TABLE users ADD COLUMN email TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE users ADD COLUMN google_id TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE users ADD COLUMN gdrive_token TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE users ADD COLUMN gdrive_auto_sync INTEGER DEFAULT 1;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN is_public INTEGER DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN share_token TEXT;"); } catch {}

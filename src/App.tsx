@@ -14,6 +14,7 @@ import { GraphView } from './components/GraphView';
 import { StudyModule } from './components/StudyModule';
 import { ScientificEditor } from './components/ScientificEditor';
 import { BackupModal } from './components/BackupModal';
+import { googleDriveSync } from './utils/googleDriveSync';
 import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -483,6 +484,7 @@ export const App: React.FC = () => {
       setNotes((prev) => [newNote, ...prev]);
       setActiveNoteId(newNote.id);
       setMainViewMode('note');
+      googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao criar nota:', err);
     }
@@ -501,6 +503,7 @@ export const App: React.FC = () => {
       setNotes((prev) => [newNote, ...prev]);
       setActiveNoteId(newNote.id);
       setMainViewMode('note');
+      googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao criar nota com template:', err);
     }
@@ -514,6 +517,7 @@ export const App: React.FC = () => {
       if (activeNote && activeNote.id === id) {
         setActiveNote((prev) => (prev ? { ...prev, ...updated } : null));
       }
+      googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao salvar nota:', err);
     }
@@ -526,6 +530,7 @@ export const App: React.FC = () => {
       await api.deleteNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
       setActiveNoteId(null);
+      googleDriveSync.notifyContentChanged();
     } catch (err) {
       console.error('Erro ao excluir nota:', err);
     }

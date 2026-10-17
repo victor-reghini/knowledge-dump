@@ -187,4 +187,68 @@ describe('Atividade 4.2: Backup Geral com Upload Direto para o Google Drive', ()
     assert.equal(result.size, sampleBuffer.length);
     assert.ok(result.webViewLink?.includes('drive.google.com'));
   });
+
+  test('4.2.7: Endpoint POST /api/auth/google deve cadastrar/atualizar usuário Google e armazenar token OAuth', async () => {
+    const googleEmail = `google_user_${Date.now()}@gmail.com`;
+    const googleId = `gid-${Date.now()}`;
+    const testToken = `oauth-token-${Date.now()}`;
+
+    // 1. Rejeita se email não fornecido
+    const failRes = await server.inject({
+      method: 'POST',
+      url: '/api/auth/google',
+      payload: { email: '' }
+    });
+    assert.equal(failRes.statusCode, 400);
+
+    // 2. Cria conta vinculada com sucesso
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/google',
+      payload: {
+        email: googleEmail,
+        name: 'Pesquisador Google Teste',
+        google_id: googleId,
+        access_token: testToken,
+        avatar_url: 'https://lh3.googleusercontent.com/a/test'
+      }
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(body.user);
+    assert.equal(body.user.email, googleEmail);
+    assert.equal(body.user.name, 'Pesquisador Google Teste');
+    assert.equal(body.user.google_id, googleId);
+    assert.equal(body.access_token, testToken);
+
+    // Limpeza
+    db.prepare('DELETE FROM users WHERE email = ?').run(googleEmail);
+  });
+
+  test('4.2.8: Endpoint POST /api/backup/google-drive/upload deve utilizar gdrive_token salvo no banco se omitido na requisição', async () => {
+    const autoUserId = `user-auto-${Date.now()}`;
+    const autoToken = `stored-token-${Date.now()}`;
+
+    db.prepare(`
+      INSERT INTO users (id, username, password_hash, name, email, gdrive_token, gdrive_auto_sync)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `).run(autoUserId, `auto_${Date.now()}`, 'hash_test', 'Auto Sync User', `${autoUserId}@test.com`, autoToken);
+
+    // Requisição SEM access_token no body: deve recuperar o autoToken do usuário
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/backup/google-drive/upload',
+      headers: { 'x-user-id': autoUserId },
+      payload: {}
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.success, true);
+    assert.ok(body.file.fileId);
+
+    // Limpeza
+    db.prepare('DELETE FROM users WHERE id = ?').run(autoUserId);
+  });
 });
