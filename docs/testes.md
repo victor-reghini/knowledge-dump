@@ -62,7 +62,9 @@ O Knowledge Dump segue uma abordagem estrita de **Test-Driven Design & Continuou
 | **RF-31** | Compilação Multi-formato (MD, TeX, DOCX, PDF) | ✅ Coberto | [`tests/atividade-3.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.3.test.ts) & [`tests/atividade-3.4.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.4.test.ts) |
 | **RF-32** | Visualização em Grafo Interativo | ✅ Coberto | [`tests/atividade-3.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.1.test.ts) |
 | **RF-33** | Filtros de Densidade e Categorias no Grafo | ✅ Coberto | [`tests/atividade-3.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.1.test.ts) |
-| **RF-36** | Autenticação de Usuário e Autoria | ✅ Coberto | [`tests/homologacao-mvp-docker.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/homologacao-mvp-docker.test.ts) |
+| **RF-34** | Sincronização Incremental para Clientes PWA | ✅ Coberto | [`tests/atividade-4.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.1.test.ts) & [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts) |
+| **RF-35** | Backup Geral com Upload para o Google Drive | ✅ Coberto | [`tests/atividade-4.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.2.test.ts) & [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts) |
+| **RF-36** | Autenticação de Usuário e Autoria | ✅ Coberto | [`tests/homologacao-mvp-docker.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/homologacao-mvp-docker.test.ts) & [`tests/atividade-4.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.2.test.ts) |
 | **RF-37** | Compartilhamento Público e Cascata | ✅ Coberto | [`tests/homologacao-mvp-docker.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/homologacao-mvp-docker.test.ts) |
 
 ---
@@ -77,6 +79,8 @@ O Knowledge Dump segue uma abordagem estrita de **Test-Driven Design & Continuou
 | **RNF-04** | Acessibilidade, Identidade Visual e Temas | Tokens WCAG AA no tema claro e escuro (cinzas neutros sem azulados/roxos, primária amarela). |
 | **RNF-05** | Integridade Referencial e Links Sem Quebra | Validado em [`tests/gestao-pastas-categorias.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/gestao-pastas-categorias.test.ts) e [`tests/atividade-3.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.1.test.ts). |
 | **RNF-06** | Portabilidade dos Dados | Exportação universal em Markdown (YAML frontmatter), LaTeX e DOCX. |
+| **RNF-07** | Experiência Mobile & Sincronização PWA | Validado em [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts): manifest standalone, Service Worker precache, meta tags iOS/Android e layout responsivo. |
+| **RNF-08** | Backup e Exportação Resiliente | Validado em [`tests/atividade-4.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.2.test.ts) e [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts): pacote .zip universal com notas Markdown/YAML e envio ao Google Drive. |
 
 ---
 
@@ -101,13 +105,20 @@ O Knowledge Dump segue uma abordagem estrita de **Test-Driven Design & Continuou
   3. Recuperação e navegação imediata do conteúdo teórico correspondente para revisão.
 
 ### Cenário 4: Sincronização e Backup no Google Drive
-- **Status:** ⏳ **PREVISTO PARA A FASE 4** (Atividades 4.1 a 4.3).
+- **Especificação:** [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts)
+- **Status:** ✅ **APROVADO**
+- **Cobertura:**
+  1. Edição de nota e criação de marcador contextual no computador refletidos no delta do smartphone.
+  2. Resolução de conflitos concorrentes Last-Write-Wins (LWW) preservando timestamp mais recente.
+  3. Propagação de tombstones para expurgo local de itens removidos.
+  4. Acionamento de backup geral no Google Drive no mobile com upload do `.zip` e link de visualização.
+  5. Validação de manifesto PWA (`standalone`), Service Worker offline e meta tags móveis.
 
 ---
 
 ## 5. Como Executar as Suítes de Teste
 
-Para rodar todas as 48 suítes com saída otimizada pelo RTK:
+Para rodar todas as 54 suítes com saída otimizada pelo RTK:
 ```bash
 rtk npm test
 ```

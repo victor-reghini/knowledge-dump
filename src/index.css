@@ -3062,6 +3062,78 @@ a:hover {
   line-height: 1.5;
 }
 
+/* ==========================================================================
+   Mobile & Smartphone Responsive Adaptations (RNF-07, Cenário BDD 4)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .app-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 999;
+    width: 280px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  }
+
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .main-wrapper {
+    width: 100vw;
+    min-width: 0;
+  }
+
+  .top-header {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .modal-content {
+    max-width: 95vw !important;
+    margin: 8px auto !important;
+    max-height: 90vh !important;
+  }
+
+  .split-view-container.split-active {
+    flex-direction: column;
+  }
+
+  .split-view-side {
+    max-width: 100% !important;
+    min-width: 100% !important;
+    height: 50% !important;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .note-editor-container {
+    padding: 8px 10px;
+  }
+
+  .icon-btn,
+  .user-badge-btn,
+  .nav-item {
+    min-height: 38px;
+    touch-action: manipulation;
+  }
+}
+
 /* Print Styles */
 @media print {
   .sidebar,

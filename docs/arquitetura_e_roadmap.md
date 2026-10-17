@@ -392,11 +392,24 @@ gantt
     - Botão de abertura com ícone `HardDrive` no [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) integrado ao layout global em [`App.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/App.tsx).
   - Suíte de testes automatizados [`tests/atividade-4.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.2.test.ts) validando geração física do ZIP, descompactação e validação de schema, endpoint de download local, validação de token e upload simulado para o Google Drive. Total de 130 testes aprovados em 50 suítes.
 
-#### Atividade 4.3: Homologação Mobile e Resiliência Offline [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `test/4.3-homologacao-mobile-offline`
+#### Atividade 4.3: Homologação Mobile e Resiliência Offline [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `test/4.3-homologacao-mobile-offline`
 - **Responsável:** `agent-testing`
 - **Descrição:** Validar instalação PWA no smartphone (iOS Safari / Android Chrome), edição sem internet e integridade do backup no Google Drive (Cenário BDD 4).
+- **Entregas Realizadas:**
+  - Homologação executável do **Cenário 4 de BDD** em [`tests/atividade-4.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.3.test.ts):
+    - Edição de nota e criação de marcador contextual no Desktop refletidos instantaneamente no delta pull incremental do smartphone.
+    - Acionamento e confirmação de upload de backup completo `.zip` universal para o Google Drive diretamente pelo cliente mobile via token autenticado.
+  - Validação de resiliência offline e resolução de conflitos temporais Last-Write-Wins (LWW):
+    - Edição concorrente offline preserva versão com timestamp `updated_at` mais recente e cataloga conflitos em `applied.conflicts` com integridade relacional.
+    - Propagação de tombstones (`sync_tombstones`) para expurgo local de itens excluídos no desktop para clientes móveis offline.
+  - Validação de instalação PWA móvel:
+    - Artefatos `dist/manifest.webmanifest` (`standalone`, `start_url: /`, ícones 192/512px e temas) e `dist/sw.js` com precache de assets estáticos offline.
+    - Meta tags de Web App móvel para iOS Safari (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`) e Android Chrome em [`index.html`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/index.html).
+  - Adaptações de layout responsivo para smartphones em [`src/index.css`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/index.css):
+    - Regras `@media (max-width: 768px)` com sidebar drawer overlay retrátil, modais a 95vw e touch targets otimizados de 38-44px.
+  - Conclusão integral da **Fase 4: Sincronização PWA Mobile & Integração Google Drive** com 142 testes automatizados aprovados em 54 suítes.
 
 ---
 

@@ -576,11 +576,12 @@ server.put('/api/notes/:id', async (request, reply) => {
   const file_type = String(body.file_type !== undefined ? body.file_type : (existing.file_type || 'docx'));
   const is_favorite = body.is_favorite !== undefined ? (body.is_favorite ? 1 : 0) : Number(existing.is_favorite || 0);
 
+  const now = new Date().toISOString();
   db.prepare(`
     UPDATE notes
-    SET title = ?, content = ?, category_id = ?, folder_id = ?, file_type = ?, is_favorite = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, content = ?, category_id = ?, folder_id = ?, file_type = ?, is_favorite = ?, updated_at = ?
     WHERE id = ?
-  `).run(title, content, category_id, folder_id, file_type, is_favorite, id);
+  `).run(title, content, category_id, folder_id, file_type, is_favorite, now, id);
 
   // Update FTS5
   if (hasFts5) {
@@ -683,12 +684,13 @@ server.post('/api/bookmarks', async (request) => {
     color?: string;
     page_or_pos?: string;
   };
-  const id = `bm-${Date.now()}`;
+  const id = (body as any).id || `bm-${Date.now()}`;
+  const now = new Date().toISOString();
   db.prepare(`
-    INSERT INTO bookmarks (id, note_id, title, comment, color, page_or_pos)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, body.note_id || null, body.title, body.comment || null, body.color || '#eab308', body.page_or_pos || null);
-  return { id, ...body };
+    INSERT INTO bookmarks (id, note_id, title, comment, color, page_or_pos, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, body.note_id || null, body.title, body.comment || null, body.color || '#eab308', body.page_or_pos || null, now, now);
+  return { id, ...body, created_at: now, updated_at: now };
 });
 
 server.delete('/api/bookmarks/:id', async (request) => {
