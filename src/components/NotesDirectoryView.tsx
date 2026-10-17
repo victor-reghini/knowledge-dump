@@ -398,10 +398,12 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                       )}
                       {onDeleteReference && (
                         <button
+                          type="button"
                           className="icon-btn"
                           style={{ width: 26, height: 26, color: 'var(--wikilink-orphan)' }}
                           title="Excluir arquivo de referência"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             onDeleteReference(ref.id);
                           }}
@@ -468,10 +470,12 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
                     </button>
                     {onDeleteNote && (
                       <button
+                        type="button"
                         className="icon-btn"
                         style={{ width: 26, height: 26, color: 'var(--wikilink-orphan)' }}
                         title="Excluir Nota"
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           onDeleteNote(note.id);
                         }}
@@ -569,10 +573,12 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
 
                     {onDeleteReference && (
                       <button
+                        type="button"
                         className="icon-btn"
                         style={{ width: 28, height: 28, color: 'var(--wikilink-orphan)' }}
                         title="Excluir arquivo de referência"
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           onDeleteReference(ref.id);
                         }}
@@ -655,10 +661,12 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
 
                   {onDeleteNote && (
                     <button
+                      type="button"
                       className="icon-btn"
                       style={{ width: 28, height: 28, color: 'var(--wikilink-orphan)' }}
                       title="Excluir Nota"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         onDeleteNote(note.id);
                       }}

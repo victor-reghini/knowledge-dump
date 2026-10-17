@@ -286,10 +286,9 @@ export const CategoryTree: React.FC<CategoryTreeProps> = ({
                 className="folder-action-btn delete"
                 title="Excluir categoria"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  if (confirm(`Deseja excluir a categoria "${node.name}"? As notas serão mantidas.`)) {
-                    onDeleteCategory(node.id);
-                  }
+                  onDeleteCategory(node.id);
                 }}
               >
                 <Trash2 size={12} />

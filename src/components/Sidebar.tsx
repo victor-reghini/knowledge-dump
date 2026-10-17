@@ -358,6 +358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className="ref-delete-btn"
                     title="Excluir referência"
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       onDeleteReference(ref.id);
                     }}
@@ -436,6 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           className="ref-delete-btn"
                           title="Excluir referência"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             onDeleteReference(ref.id);
                           }}
@@ -473,6 +475,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           className="ref-delete-btn"
                           title="Excluir nota"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             onDeleteNote(note.id);
                           }}

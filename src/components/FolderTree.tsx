@@ -260,10 +260,9 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                 className="folder-action-btn delete"
                 title="Excluir pasta"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  if (confirm(`Deseja excluir a pasta "${node.name}"? As notas serão mantidas.`)) {
-                    onDeleteFolder(node.id);
-                  }
+                  onDeleteFolder(node.id);
                 }}
               >
                 <Trash2 size={12} />

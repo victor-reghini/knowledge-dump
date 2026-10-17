@@ -629,8 +629,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <span>{isSaved ? 'Salvo' : 'Salvar'}</span>
           </button>
           <button
+            type="button"
             className="toolbar-btn"
-            onClick={() => onDelete(note.id)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(note.id);
+            }}
             style={{ color: 'var(--wikilink-orphan)' }}
             title="Excluir Nota"
           >

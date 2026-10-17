@@ -14,6 +14,7 @@ import { GraphView } from './components/GraphView';
 import { StudyModule } from './components/StudyModule';
 import { ScientificEditor } from './components/ScientificEditor';
 import { BackupModal } from './components/BackupModal';
+import { ConfirmModal } from './components/ConfirmModal';
 import { googleDriveSync } from './utils/googleDriveSync';
 import { ArrowLeft, Columns, X, FileText, Trash2 } from 'lucide-react';
 
@@ -32,6 +33,14 @@ export const App: React.FC = () => {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // In-app Delete Confirmation Modal state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'note' | 'reference' | 'folder' | 'category';
+    id: string;
+    title: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // View and Split-View states (Individual reference viewing, Dual Split View, Graph, Studies, and Scientific Composition)
   const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph' | 'studies' | 'composition'>('directory');
@@ -229,15 +238,12 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteFolder = async (id: string) => {
-    try {
-      await api.deleteFolder(id);
-      const [updatedFolders, updatedNotes] = await Promise.all([api.getFolders(), api.getNotes()]);
-      setFolders(updatedFolders);
-      setNotes(updatedNotes);
-      if (selectedFolderId === id) setSelectedFolderId(null);
-    } catch (err) {
-      console.error('Erro ao excluir pasta:', err);
-    }
+    const target = folders.find((f) => f.id === id);
+    setDeleteTarget({
+      type: 'folder',
+      id,
+      title: target?.name || 'Pasta selecionada'
+    });
   };
 
   // Category management (Criação, Edição, Mover, Remoção)
@@ -267,19 +273,12 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    try {
-      await api.deleteCategory(id);
-      const [updatedCats, updatedNotes] = await Promise.all([api.getCategories(), api.getNotes()]);
-      setCategories(updatedCats);
-      setNotes(updatedNotes);
-      if (selectedCategoryId === id) setSelectedCategoryId(null);
-      if (activeNote) {
-        const refreshed = await api.getNote(activeNote.id);
-        setActiveNote(refreshed);
-      }
-    } catch (err) {
-      console.error('Erro ao excluir categoria:', err);
-    }
+    const target = categories.find((c) => c.id === id);
+    setDeleteTarget({
+      type: 'category',
+      id,
+      title: target?.name || 'Categoria selecionada'
+    });
   };
 
   // References & Document Handlers (Stand-alone individual viewer or Split View)
@@ -333,23 +332,12 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteReference = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este arquivo de referência?')) return;
-    try {
-      await api.deleteReference(id);
-      const updatedRefs = await api.getReferences();
-      setReferences(updatedRefs);
-      if (activeReference?.id === id) {
-        const nextRef = updatedRefs[0] || null;
-        setActiveReference(nextRef);
-        if (!nextRef || mainViewMode === 'reference') {
-          setMainViewMode('directory');
-        }
-        if (updatedRefs.length === 0) setIsSplitViewOpen(false);
-      }
-      googleDriveSync.notifyContentChanged();
-    } catch (err) {
-      console.error('Erro ao excluir referência:', err);
-    }
+    const target = references.find((r) => r.id === id);
+    setDeleteTarget({
+      type: 'reference',
+      id,
+      title: target?.title || 'Arquivo selecionado'
+    });
   };
 
   // Deep-link from note or citation card into Document Viewer (RF-19 & RF-20)
@@ -531,22 +519,64 @@ export const App: React.FC = () => {
 
   // Delete Note
   const handleDeleteNote = async (id: string) => {
-    if (!confirm('Deseja realmente excluir esta nota?')) return;
+    const target = notes.find((n) => n.id === id);
+    setDeleteTarget({
+      type: 'note',
+      id,
+      title: target?.title || 'Nota selecionada'
+    });
+  };
+
+  // Execution of confirmed deletion from ConfirmModal
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { type, id } = deleteTarget;
+    setIsDeleting(true);
     try {
-      await api.deleteNote(id);
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-      if (activeNoteId === id) {
-        setActiveNoteId(null);
-        setActiveNote(null);
-        setMainViewMode('directory');
+      if (type === 'note') {
+        await api.deleteNote(id);
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        if (activeNoteId === id) {
+          setActiveNoteId(null);
+          setActiveNote(null);
+          setMainViewMode('directory');
+        }
+        if (splitSecondaryNoteId === id) {
+          setSplitSecondaryNoteId(null);
+          setSplitSecondaryNote(null);
+        }
+        googleDriveSync.notifyContentChanged();
+      } else if (type === 'reference') {
+        await api.deleteReference(id);
+        const updatedRefs = await api.getReferences();
+        setReferences(updatedRefs);
+        if (activeReference?.id === id) {
+          const nextRef = updatedRefs[0] || null;
+          setActiveReference(nextRef);
+          if (!nextRef || mainViewMode === 'reference') {
+            setMainViewMode('directory');
+          }
+          if (updatedRefs.length === 0) setIsSplitViewOpen(false);
+        }
+        googleDriveSync.notifyContentChanged();
+      } else if (type === 'folder') {
+        await api.deleteFolder(id);
+        const [updatedFolders, updatedNotes] = await Promise.all([api.getFolders(), api.getNotes()]);
+        setFolders(updatedFolders);
+        setNotes(updatedNotes);
+        if (selectedFolderId === id) setSelectedFolderId(null);
+      } else if (type === 'category') {
+        await api.deleteCategory(id);
+        const [updatedCats, updatedNotes] = await Promise.all([api.getCategories(), api.getNotes()]);
+        setCategories(updatedCats);
+        setNotes(updatedNotes);
+        if (selectedCategoryId === id) setSelectedCategoryId(null);
       }
-      if (splitSecondaryNoteId === id) {
-        setSplitSecondaryNoteId(null);
-        setSplitSecondaryNote(null);
-      }
-      googleDriveSync.notifyContentChanged();
     } catch (err) {
-      console.error('Erro ao excluir nota:', err);
+      console.error('Erro ao excluir item:', err);
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -786,8 +816,13 @@ export const App: React.FC = () => {
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <button
+                          type="button"
                           className="toolbar-btn"
-                          onClick={() => handleDeleteReference(activeReference.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteReference(activeReference.id);
+                          }}
                           style={{ color: 'var(--wikilink-orphan)', display: 'flex', alignItems: 'center', gap: 6 }}
                           title="Excluir arquivo de referência"
                         >
@@ -1030,6 +1065,32 @@ export const App: React.FC = () => {
       <BackupModal
         isOpen={isBackupOpen}
         onClose={() => setIsBackupOpen(false)}
+      />
+
+      {/* In-App Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title={
+          deleteTarget?.type === 'note'
+            ? 'Excluir Nota'
+            : deleteTarget?.type === 'reference'
+            ? 'Excluir Arquivo de Referência'
+            : deleteTarget?.type === 'folder'
+            ? 'Excluir Pasta'
+            : 'Excluir Categoria'
+        }
+        message={
+          deleteTarget?.type === 'folder'
+            ? 'Deseja realmente excluir esta pasta? As notas contidas nela serão mantidas.'
+            : deleteTarget?.type === 'category'
+            ? 'Deseja realmente excluir esta categoria? As notas contidas nela serão mantidas.'
+            : `Deseja realmente excluir este ${deleteTarget?.type === 'note' ? 'documento' : 'arquivo'}?`
+        }
+        itemTitle={deleteTarget?.title}
+        confirmLabel="Excluir Definitivamente"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
       />
     </div>
   );
