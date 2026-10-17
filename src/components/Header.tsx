@@ -13,7 +13,8 @@ import {
   Cloud,
   CloudOff,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  HardDrive
 } from 'lucide-react';
 import { User } from '../types';
 import { syncManager, SyncState } from '../utils/syncManager';
@@ -35,6 +36,7 @@ interface HeaderProps {
   onToggleComposition?: () => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  onOpenBackup?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -53,7 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   isCompositionOpen,
   onToggleComposition,
   isSidebarCollapsed,
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenBackup
 }) => {
   const [syncState, setSyncState] = useState<SyncState>(syncManager.getState());
 
@@ -176,6 +179,18 @@ export const Header: React.FC<HeaderProps> = ({
             <Cloud size={18} style={{ color: 'var(--accent-blue)' }} />
           )}
         </button>
+
+        {/* Backup & Google Drive Icon Button (RF-35, RNF-08) */}
+        {onOpenBackup && (
+          <button
+            className="icon-btn"
+            onClick={onOpenBackup}
+            title="Backup Geral & Google Drive (RF-35, RNF-08)"
+            aria-label="Backup Geral & Google Drive"
+          >
+            <HardDrive size={18} />
+          </button>
+        )}
 
         <div className="header-divider" />
 

@@ -368,11 +368,29 @@ gantt
     - Indicador de status e botão de sincronização manual em [`src/components/Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) com estados visuais para sincronizado, sincronizando (com animação CSS nativa) e offline.
   - Suíte de testes automatizados em [`tests/atividade-4.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.1.test.ts) validando status, full pull inicial, push offline com persistência física no SQLite, resolução de conflitos LWW e propagação de tombstones. Todos os 124 testes do projeto aprovados com sucesso.
 
-#### Atividade 4.2: Backup Geral com Upload Direto para o Google Drive [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/4.2-backup-google-drive`
+#### Atividade 4.2: Backup Geral com Upload Direto para o Google Drive [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/4.2-backup-google-drive`
 - **Responsável:** `agent-development`
-- **Descrição:** Desenvolver funcionalidade de geração de pacote `.zip` completo do acervo e upload automatizado via Google Drive REST API v3 com OAuth2.
+- **Descrição:** Desenvolver funcionalidade de geração de pacote `.zip` completo do acervo e upload automatizado via Google Drive REST API v3 com OAuth2 (RF-35, RNF-08, RN-06).
+- **Entregas Realizadas:**
+  - Módulo nativo de empacotamento universal em [`server/backup.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/backup.ts):
+    - Conversão automática de notas em arquivos Markdown universais com metadados em YAML frontmatter padronizado (sem lock-in proprietário).
+    - Preservação da árvore de pastas, referências originais anexas no disco e exportação estruturada de categorias, pastas, marcadores, citações e trilhas de estudo em JSON sob `/metadata/`.
+    - Geração de `manifest.json` com versão de schema, data de compilação e contadores de integridade, acompanhado de `README.md` explicativo para restauração humana.
+    - Empacotamento em buffer binário `.zip` nativo via `node:zlib` sem dependências externas.
+  - Integração com Google Drive REST API v3:
+    - Função `uploadToGoogleDrive` utilizando upload multipart (`multipart/related`) oficial com boundary RFC, metadados JSON e transmissão do binário zip.
+    - Endpoints no backend em [`server/index.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/index.ts):
+      - `GET /api/backup/status`: retorno de contadores do acervo e formato de backup.
+      - `GET /api/backup/download`: download direto do arquivo `.zip` com cabeçalho `Content-Disposition`.
+      - `POST /api/backup/google-drive/upload`: envio automatizado para o Google Drive com retorno do File ID e link de visualização.
+  - Componente de frontend [`BackupModal.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/BackupModal.tsx):
+    - Visualização consolidada de notas, referências anexas, pastas e marcadores a serem compactados.
+    - Ação de download local em 1 clique do pacote `.zip`.
+    - Interface de conexão com o Google Drive via Access Token OAuth2 com feedback em tempo real e link direto para o arquivo enviado.
+    - Botão de abertura com ícone `HardDrive` no [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) integrado ao layout global em [`App.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/App.tsx).
+  - Suíte de testes automatizados [`tests/atividade-4.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.2.test.ts) validando geração física do ZIP, descompactação e validação de schema, endpoint de download local, validação de token e upload simulado para o Google Drive. Total de 130 testes aprovados em 50 suítes.
 
 #### Atividade 4.3: Homologação Mobile e Resiliência Offline [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

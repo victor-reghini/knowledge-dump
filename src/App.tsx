@@ -13,6 +13,7 @@ import { ReferenceViewer } from './components/ReferenceViewer';
 import { GraphView } from './components/GraphView';
 import { StudyModule } from './components/StudyModule';
 import { ScientificEditor } from './components/ScientificEditor';
+import { BackupModal } from './components/BackupModal';
 import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -678,6 +680,7 @@ export const App: React.FC = () => {
           }}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={toggleSidebar}
+          onOpenBackup={() => setIsBackupOpen(true)}
         />
 
         <div className="content-area">
@@ -988,6 +991,12 @@ export const App: React.FC = () => {
           setCurrentUser(user);
           loadData();
         }}
+      />
+
+      {/* Backup & Google Drive Modal (RF-35, RNF-08) */}
+      <BackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR, recordTomb
 import { parseDocxFile, saveDocxFile, buildDocxFromContent } from './docx.js';
 import { parsePptxFile } from './pptx.js';
 import { compileToMarkdown, compileToLatex, compileToDocx, compileToPdf, CitationItem, ArticleExportData, CompileOptions } from './export.js';
+import { generateBackupPackage, uploadToGoogleDrive } from './backup.js';
 
 initDatabase();
 
@@ -2467,6 +2468,68 @@ server.post('/api/sync', async (request) => {
     },
     tombstones
   };
+});
+
+// --- BACKUP & GOOGLE DRIVE INTEGRATION (RF-35, RNF-08) ---
+
+server.get('/api/backup/status', async (request) => {
+  const userId = getUserId(request);
+  const notesCount = (db.prepare('SELECT count(*) as c FROM notes WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const referencesCount = (db.prepare('SELECT count(*) as c FROM references_files WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const categoriesCount = (db.prepare('SELECT count(*) as c FROM categories WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const foldersCount = (db.prepare('SELECT count(*) as c FROM folders WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const bookmarksCount = (db.prepare('SELECT count(*) as c FROM bookmarks').get() as { c: number }).c;
+
+  return {
+    status: 'ready',
+    user_id: userId,
+    counts: {
+      notes: notesCount,
+      references: referencesCount,
+      categories: categoriesCount,
+      folders: foldersCount,
+      bookmarks: bookmarksCount
+    },
+    format: 'zip'
+  };
+});
+
+server.get('/api/backup/download', async (request, reply) => {
+  const userId = getUserId(request);
+  const { buffer, filename, manifest } = await generateBackupPackage(userId);
+
+  reply.header('Content-Type', 'application/zip');
+  reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+  reply.header('X-Backup-Notes-Count', String(manifest.counts.notes));
+  reply.header('X-Backup-References-Count', String(manifest.counts.references));
+  return reply.send(buffer);
+});
+
+server.post('/api/backup/google-drive/upload', async (request, reply) => {
+  const userId = getUserId(request);
+  const body = (request.body || {}) as { access_token?: string };
+  const accessToken = body.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN || '';
+
+  if (!accessToken.trim()) {
+    return reply.status(400).send({
+      error: 'Access Token do Google Drive não fornecido. Insira um token OAuth2 válido ou configure GOOGLE_DRIVE_ACCESS_TOKEN.'
+    });
+  }
+
+  try {
+    const { buffer, filename, manifest } = await generateBackupPackage(userId);
+    const driveResult = await uploadToGoogleDrive(buffer, filename, accessToken.trim());
+
+    return {
+      success: true,
+      file: driveResult,
+      manifest
+    };
+  } catch (err: any) {
+    return reply.status(502).send({
+      error: err.message || 'Falha ao enviar backup para o Google Drive'
+    });
+  }
 });
 
 // Fallback for SPA routing in production

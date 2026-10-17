@@ -354,3 +354,32 @@ export interface SyncStatus {
   };
 }
 
+export interface BackupStatus {
+  status: 'ready' | 'generating' | 'error';
+  user_id: string;
+  counts: {
+    notes: number;
+    references: number;
+    categories: number;
+    folders: number;
+    bookmarks: number;
+  };
+  format: string;
+}
+
+export interface BackupDriveUploadResult {
+  success: boolean;
+  file: {
+    fileId: string;
+    name: string;
+    webViewLink?: string;
+    size: number;
+  };
+  manifest: {
+    knowledge_dump_version: string;
+    backup_created_at: string;
+    counts: Record<string, number>;
+  };
+}
+
+

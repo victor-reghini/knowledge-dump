@@ -20,7 +20,9 @@ import {
   CompileResult,
   SyncPushPayload,
   SyncResponse,
-  SyncStatus
+  SyncStatus,
+  BackupStatus,
+  BackupDriveUploadResult
 } from './types';
 
 const BASE_URL = '/api';
@@ -682,6 +684,31 @@ export const api = {
       headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error('Falha ao obter status de sincronização');
+    return res.json();
+  },
+
+  getBackupDownloadUrl(): string {
+    return `${BASE_URL}/backup/download`;
+  },
+
+  async getBackupStatus(): Promise<BackupStatus> {
+    const res = await fetch(`${BASE_URL}/backup/status`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Falha ao obter status de backup');
+    return res.json();
+  },
+
+  async uploadBackupToGoogleDrive(accessToken?: string): Promise<BackupDriveUploadResult> {
+    const res = await fetch(`${BASE_URL}/backup/google-drive/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ access_token: accessToken })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha ao enviar backup para o Google Drive');
+    }
     return res.json();
   }
 };
