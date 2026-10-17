@@ -19,7 +19,8 @@ import {
   ChevronDown,
   Network,
   GraduationCap,
-  PenTool
+  PenTool,
+  PanelLeftClose
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -53,6 +54,8 @@ interface SidebarProps {
   isStudiesOpen?: boolean;
   onOpenComposition?: () => void;
   isCompositionOpen?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -85,7 +88,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenStudies,
   isStudiesOpen,
   onOpenComposition,
-  isCompositionOpen
+  isCompositionOpen,
+  isCollapsed,
+  onToggleCollapse
 }) => {
   const safeReferences = Array.isArray(references) ? references : [];
   const safeBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
@@ -106,13 +111,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="sidebar" aria-label="Navegação Principal">
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} aria-label="Navegação Principal">
       <div className="sidebar-header">
         <div className="app-brand">
           <BookOpen className="brand-icon" />
           <span>Knowledge Dump</span>
           <span className="brand-badge">v1.4</span>
         </div>
+        {onToggleCollapse && (
+          <button
+            className="icon-btn"
+            onClick={onToggleCollapse}
+            title="Recolher menu lateral"
+            aria-label="Recolher menu lateral"
+            style={{ width: 30, height: 30 }}
+          >
+            <PanelLeftClose size={16} />
+          </button>
+        )}
       </div>
 
       <div style={{ padding: '0 12px 12px 12px', position: 'relative' }}>

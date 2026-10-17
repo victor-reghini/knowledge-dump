@@ -93,6 +93,19 @@ export const App: React.FC = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  // Collapsible sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('kd_sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('kd_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   // Load data for active user
   const loadData = useCallback(async () => {
     try {
@@ -638,6 +651,8 @@ export const App: React.FC = () => {
         isStudiesOpen={mainViewMode === 'studies'}
         onOpenComposition={() => setMainViewMode('composition')}
         isCompositionOpen={mainViewMode === 'composition'}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
       />
 
       <div className="main-wrapper">
@@ -661,6 +676,8 @@ export const App: React.FC = () => {
             }
             setIsSplitViewOpen((prev) => !prev);
           }}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={toggleSidebar}
         />
 
         <div className="content-area">

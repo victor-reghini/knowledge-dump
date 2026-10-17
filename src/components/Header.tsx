@@ -1,5 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap, PenTool, RefreshCw, Cloud, CloudOff } from 'lucide-react';
+import {
+  Search,
+  Moon,
+  Sun,
+  ShieldCheck,
+  User as UserIcon,
+  Columns2,
+  Network,
+  GraduationCap,
+  PenTool,
+  RefreshCw,
+  Cloud,
+  CloudOff,
+  PanelLeft,
+  PanelLeftClose
+} from 'lucide-react';
 import { User } from '../types';
 import { syncManager, SyncState } from '../utils/syncManager';
 
@@ -18,6 +33,8 @@ interface HeaderProps {
   onToggleStudies?: () => void;
   isCompositionOpen?: boolean;
   onToggleComposition?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,7 +51,9 @@ export const Header: React.FC<HeaderProps> = ({
   isStudiesOpen,
   onToggleStudies,
   isCompositionOpen,
-  onToggleComposition
+  onToggleComposition,
+  isSidebarCollapsed,
+  onToggleSidebar
 }) => {
   const [syncState, setSyncState] = useState<SyncState>(syncManager.getState());
 
@@ -49,9 +68,21 @@ export const Header: React.FC<HeaderProps> = ({
       // Handled in syncManager
     }
   };
+
   return (
     <header className="top-header" role="banner">
       <div className="header-left">
+        {onToggleSidebar && (
+          <button
+            className={`icon-btn ${isSidebarCollapsed ? 'active' : ''}`}
+            onClick={onToggleSidebar}
+            title={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            aria-label={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          >
+            {isSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        )}
+
         <button
           className="search-trigger"
           onClick={onOpenSearch}
@@ -66,86 +97,62 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-right">
         {onToggleComposition && (
           <button
-            className={`user-badge-btn ${isCompositionOpen ? 'active' : ''}`}
+            className={`icon-btn ${isCompositionOpen ? 'active' : ''}`}
             onClick={onToggleComposition}
-            title={isCompositionOpen ? 'Sair do Modo de Redação' : 'Abrir Modo de Redação Científica (RF-30)'}
-            style={{
-              backgroundColor: isCompositionOpen ? 'var(--primary-yellow-light)' : undefined,
-              borderColor: isCompositionOpen ? 'var(--primary-yellow-border)' : undefined,
-              color: isCompositionOpen ? 'var(--primary-yellow-text)' : undefined
-            }}
+            title={isCompositionOpen ? 'Sair do Modo de Redação' : 'Modo de Redação Científica (RF-30)'}
+            aria-label="Modo de Redação Científica"
           >
-            <PenTool size={15} />
-            <span>{isCompositionOpen ? 'Redação Ativa' : 'Redação'}</span>
+            <PenTool size={18} />
           </button>
         )}
 
         {onToggleStudies && (
           <button
-            className={`user-badge-btn ${isStudiesOpen ? 'active' : ''}`}
+            className={`icon-btn ${isStudiesOpen ? 'active' : ''}`}
             onClick={onToggleStudies}
-            title={isStudiesOpen ? 'Sair do Módulo de Estudos' : 'Abrir Módulo de Estudos e Exercícios (RF-22)'}
-            style={{
-              backgroundColor: isStudiesOpen ? 'var(--primary-yellow-light)' : undefined,
-              borderColor: isStudiesOpen ? 'var(--primary-yellow-border)' : undefined,
-              color: isStudiesOpen ? 'var(--primary-yellow-text)' : undefined
-            }}
+            title={isStudiesOpen ? 'Sair do Módulo de Estudos' : 'Planos de Estudo e Exercícios (RF-22)'}
+            aria-label="Módulo de Estudos e Exercícios"
           >
-            <GraduationCap size={15} />
-            <span>{isStudiesOpen ? 'Estudos Ativo' : 'Estudos'}</span>
+            <GraduationCap size={18} />
           </button>
         )}
 
         {onToggleGraph && (
           <button
-            className={`user-badge-btn ${isGraphOpen ? 'active' : ''}`}
+            className={`icon-btn ${isGraphOpen ? 'active' : ''}`}
             onClick={onToggleGraph}
-            title={isGraphOpen ? 'Sair do Grafo de Conhecimento' : 'Abrir Mapa Interativo em Grafo (RF-32)'}
-            style={{
-              backgroundColor: isGraphOpen ? 'var(--primary-yellow-light)' : undefined,
-              borderColor: isGraphOpen ? 'var(--primary-yellow-border)' : undefined,
-              color: isGraphOpen ? 'var(--primary-yellow-text)' : undefined
-            }}
+            title={isGraphOpen ? 'Sair do Grafo de Conhecimento' : 'Mapa Interativo em Grafo (RF-32)'}
+            aria-label="Grafo de Conhecimento"
           >
-            <Network size={15} />
-            <span>{isGraphOpen ? 'Grafo Ativo' : 'Grafo'}</span>
+            <Network size={18} />
           </button>
         )}
 
         {onToggleSplitView && (
           <button
-            className={`user-badge-btn ${isSplitViewOpen ? 'active' : ''}`}
+            className={`icon-btn ${isSplitViewOpen ? 'active' : ''}`}
             onClick={onToggleSplitView}
-            title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela com Visualizador de PDF'}
-            style={{
-              backgroundColor: isSplitViewOpen ? 'var(--primary-yellow-light)' : undefined,
-              borderColor: isSplitViewOpen ? 'var(--primary-yellow-border)' : undefined,
-              color: isSplitViewOpen ? 'var(--primary-yellow-text)' : undefined
-            }}
+            title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela (Visualizador de PDF)'}
+            aria-label="Dividir Tela"
           >
-            <Columns2 size={15} />
-            <span>{isSplitViewOpen ? 'Split-View Ativo' : 'Visualizador PDF'}</span>
+            <Columns2 size={18} />
           </button>
         )}
 
+        <div className="header-divider" />
+
+        {/* Local-First indicator icon */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '0.8rem',
-            color: 'var(--text-muted)',
-            marginRight: '6px'
-          }}
-          title="Armazenamento Local Soberano no Host macOS"
+          className="icon-btn-static"
+          title={`Armazenamento Local Soberano (${notesCount} notas salvas no SQLite)`}
+          aria-label="Local-First"
         >
-          <ShieldCheck size={16} style={{ color: 'var(--accent-green)' }} />
-          <span>Local-First ({notesCount} notas)</span>
+          <ShieldCheck size={18} style={{ color: 'var(--accent-green)' }} />
         </div>
 
-        {/* Sync Status Button (RF-34, RNF-07) */}
+        {/* Sync Status Icon Button */}
         <button
-          className="user-badge-btn"
+          className="icon-btn"
           onClick={handleManualSync}
           disabled={syncState.isSyncing}
           title={
@@ -153,39 +160,36 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'Sincronizando com a nuvem...'
               : !syncState.isOnline
               ? 'Modo Offline: alterações serão sincronizadas ao reconectar'
+              : syncState.pendingCount > 0
+              ? `${syncState.pendingCount} alteração(ões) pendente(s) - clique para sincronizar`
               : syncState.lastSyncedAt
-              ? `Última sincronização: ${new Date(syncState.lastSyncedAt).toLocaleTimeString()}`
-              : 'Clique para sincronizar agora'
+              ? `Sincronizado às ${new Date(syncState.lastSyncedAt).toLocaleTimeString()} - clique para sincronizar`
+              : 'Sincronizar acervo com a nuvem'
           }
-          style={{
-            borderColor: !syncState.isOnline ? 'var(--accent-red)' : undefined,
-            color: !syncState.isOnline ? 'var(--accent-red)' : undefined
-          }}
+          aria-label="Sincronização"
         >
           {syncState.isSyncing ? (
-            <RefreshCw size={14} className="spin" />
+            <RefreshCw size={18} className="spin" />
           ) : !syncState.isOnline ? (
-            <CloudOff size={14} />
+            <CloudOff size={18} style={{ color: 'var(--accent-red)' }} />
           ) : (
-            <Cloud size={14} style={{ color: 'var(--accent-blue)' }} />
+            <Cloud size={18} style={{ color: 'var(--accent-blue)' }} />
           )}
-          <span>
-            {syncState.isSyncing
-              ? 'Sincronizando...'
-              : !syncState.isOnline
-              ? 'Offline'
-              : syncState.pendingCount > 0
-              ? `${syncState.pendingCount} pendente(s)`
-              : 'Sincronizado'}
-          </span>
         </button>
 
-        {/* User Badge / Login button (RF-36) */}
-        <button className="user-badge-btn" onClick={onOpenAuth} title="Conta do Usuário">
-          <UserIcon size={15} style={{ color: 'var(--primary-yellow-border)' }} />
-          <span>{currentUser ? currentUser.name : 'Entrar'}</span>
+        <div className="header-divider" />
+
+        {/* User Badge Icon Button (RF-36) */}
+        <button
+          className="icon-btn"
+          onClick={onOpenAuth}
+          title={currentUser ? `Usuário autenticado: ${currentUser.name}` : 'Entrar na Conta (RF-36)'}
+          aria-label="Conta do Usuário"
+        >
+          <UserIcon size={18} style={{ color: currentUser ? 'var(--primary-yellow-border)' : undefined }} />
         </button>
 
+        {/* Theme Toggle Icon Button */}
         <button
           className="icon-btn"
           onClick={onToggleTheme}
@@ -198,3 +202,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
