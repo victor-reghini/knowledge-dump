@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Note, Folder, Category, Bookmark, ReferenceFile } from '../types';
 import { FolderTree } from './FolderTree';
 import { CategoryTree } from './CategoryTree';
@@ -15,7 +15,8 @@ import {
   Film,
   Music,
   Image as ImageIcon,
-  Presentation
+  Presentation,
+  ChevronDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,7 +29,7 @@ interface SidebarProps {
   activeNoteId: string | null;
   activeReferenceId?: string | null;
   onSelectNote: (id: string) => void;
-  onNewNote: () => void;
+  onNewNote: (fileType?: 'docx' | 'md') => void;
   selectedCategoryId: string | null;
   onSelectCategory: (id: string | null) => void;
   selectedFolderId: string | null;
@@ -79,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const safeNotes = Array.isArray(notes) ? notes : [];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showNewNoteMenu, setShowNewNoteMenu] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -98,10 +100,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <button className="sidebar-action-btn" onClick={onNewNote} aria-label="Criar nova nota">
-        <Plus size={18} />
-        <span>Nova Nota</span>
-      </button>
+      <div style={{ padding: '0 12px 12px 12px', position: 'relative' }}>
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button
+            className="sidebar-action-btn"
+            style={{ flex: 1, margin: 0 }}
+            onClick={() => onNewNote('docx')}
+            aria-label="Criar nova nota em formato Word (DOCX)"
+            title="Criar nova nota (Editor Word - DOCX)"
+          >
+            <Plus size={18} />
+            <span>Nova Nota</span>
+          </button>
+          <button
+            className="sidebar-action-btn"
+            style={{ width: 34, padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setShowNewNoteMenu(!showNewNoteMenu)}
+            title="Escolher tipo de arquivo da nota"
+            aria-label="Escolher formato da nota"
+          >
+            <ChevronDown size={15} />
+          </button>
+        </div>
+
+        {showNewNoteMenu && (
+          <div className="new-note-dropdown">
+            <button
+              type="button"
+              className="new-note-dropdown-item active"
+              onClick={() => {
+                onNewNote('docx');
+                setShowNewNoteMenu(false);
+              }}
+            >
+              <FileText size={16} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Documento Word (.docx)</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Padrão • Editor Completo</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="new-note-dropdown-item"
+              onClick={() => {
+                onNewNote('md');
+                setShowNewNoteMenu(false);
+              }}
+            >
+              <FileCode size={16} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Documento Markdown (.md)</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Texto puro com sintaxe MD</div>
+              </div>
+            </button>
+          </div>
+        )}
+      </div>
 
       <nav className="sidebar-nav">
         {/* All Notes */}

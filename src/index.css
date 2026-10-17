@@ -1968,7 +1968,7 @@ a:hover {
 
 .docx-search-match {
   background-color: rgba(234, 179, 8, 0.25) !important;
-  border-left: 3px solid var(--accent-yellow);
+  border-left: 3px solid var(--primary-yellow-border);
 }
 
 /* LaTeX Viewer Typography */
@@ -1989,5 +1989,479 @@ a:hover {
   background-color: var(--bg-hover);
 }
 
+/* ==========================================================================
+   Word / Google Docs Rich Text Editor Styles
+   ========================================================================== */
+.word-editor-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
 
+.word-ribbon {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
+.word-ribbon-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px 0 12px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.word-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.word-tab:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.word-tab.active {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom: 2px solid var(--primary-yellow-border);
+  background-color: var(--bg-secondary);
+}
+
+.word-ribbon-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.word-ribbon-toggle-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary-yellow-border);
+}
+
+.word-ribbon-body {
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.word-ribbon-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.word-tool-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+}
+
+.word-group-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.word-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.word-icon-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.word-icon-btn.is-active {
+  background-color: var(--primary-yellow);
+  color: var(--primary-yellow-text);
+  border-color: var(--primary-yellow-border);
+  font-weight: 600;
+}
+
+.word-select {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.word-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.word-action-chip:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--primary-yellow-border);
+}
+
+.word-action-chip.active {
+  background-color: var(--primary-yellow);
+  color: var(--primary-yellow-text);
+  border-color: var(--primary-yellow-border);
+  font-weight: 600;
+}
+
+.word-action-chip.primary {
+  background-color: var(--primary-yellow);
+  color: var(--primary-yellow-text);
+  border-color: var(--primary-yellow-border);
+  font-weight: 600;
+}
+
+.word-divider {
+  width: 1px;
+  height: 28px;
+  background-color: var(--border-color);
+  margin: 0 4px;
+}
+
+/* Palette Dropdown */
+.word-palette-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 50;
+  min-width: 140px;
+}
+
+.word-palette-header {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.word-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.word-palette-item:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Word Workbench & Paper Sheet */
+.word-workbench-area {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #f1f3f5;
+  padding: 32px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+[data-theme='dark'] .word-workbench-area {
+  background-color: #121212;
+}
+
+.word-workbench-area.is-fluid {
+  padding: 16px 24px;
+}
+
+.word-page-sheet {
+  width: 100%;
+  max-width: 820px;
+  min-height: 980px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  padding: 48px 56px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #18181b;
+}
+
+[data-theme='dark'] .word-page-sheet {
+  background-color: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  color: #f4f4f5;
+}
+
+.word-workbench-area.is-fluid .word-page-sheet {
+  max-width: 100%;
+  box-shadow: none;
+  border: none;
+  padding: 24px 32px;
+  border-radius: 0;
+}
+
+.word-page-header-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 10px;
+  margin-bottom: 28px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.word-page-title-preview {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.word-editor-content .ProseMirror {
+  outline: none;
+  min-height: 750px;
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+
+.word-editor-content .ProseMirror p {
+  margin-bottom: 14px;
+}
+
+/* TipTap Tables */
+.tiptap-table {
+  border-collapse: collapse;
+  margin: 18px 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.tiptap-table td,
+.tiptap-table th {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  min-width: 80px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tiptap-table th {
+  background-color: var(--bg-tertiary);
+  font-weight: 600;
+}
+
+.tiptap-table .selectedCell:after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(234, 179, 8, 0.15);
+  pointer-events: none;
+}
+
+.tiptap-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 14px 0;
+  display: block;
+}
+
+/* New Note Dropdown */
+.new-note-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  right: 12px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.new-note-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.new-note-dropdown-item:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--primary-yellow-border);
+}
+
+.new-note-dropdown-item.active {
+  background-color: rgba(234, 179, 8, 0.08);
+  border-color: var(--primary-yellow-border);
+}
+
+/* Split View Pane Enhancements */
+.split-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  gap: 10px;
+}
+
+.split-mode-toggle {
+  display: flex;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.split-mode-btn {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.split-mode-btn.active {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.split-select {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  max-width: 220px;
+  cursor: pointer;
+}
+
+.split-view-content {
+  flex: 1;
+  height: calc(100% - 45px);
+  overflow: hidden;
+}
+
+/* Print Styles */
+@media print {
+  .sidebar,
+  .top-header,
+  .word-ribbon,
+  .note-toolbar,
+  .citations-section,
+  .backlinks-section,
+  .split-view-side,
+  .word-page-header-indicator,
+  .note-header,
+  .app-brand,
+  .toolbar-btn {
+    display: none !important;
+  }
+
+  body,
+  .app-container,
+  .main-wrapper,
+  .content-area,
+  .split-view-container,
+  .split-view-main,
+  .word-workbench-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .word-page-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 20mm !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}

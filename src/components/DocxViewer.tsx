@@ -201,6 +201,18 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     }
   };
 
+  // Keyboard shortcut Ctrl+S / Cmd+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [rawText]);
+
   // Filtered paragraphs if searching
   const filteredParagraphs = searchQuery.trim()
     ? paragraphs.filter((p) => p.text.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -272,7 +284,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           >
             <Save size={14} />
             <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
             </span>
           </button>
 

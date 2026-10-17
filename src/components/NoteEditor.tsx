@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import katex from 'katex';
 import { Note, Category, Folder } from '../types';
+import { api } from '../api';
 import { TiptapEditor } from './TiptapEditor';
 import { WikilinkPreviewPopover } from './WikilinkPreviewPopover';
 import { slugify } from '../utils/slugify';
@@ -22,7 +23,9 @@ import {
   X,
   Columns2,
   Quote,
-  FileCode
+  FileCode,
+  FileDown,
+  Printer
 } from 'lucide-react';
 
 interface NoteEditorProps {
@@ -68,7 +71,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [categoryId, setCategoryId] = useState<string | null>(note.category_id);
   const [folderId, setFolderId] = useState<string | null>(note.folder_id);
   const [isSaved, setIsSaved] = useState(true);
-  const [viewMode, setViewMode] = useState<'preview' | 'tiptap' | 'markdown'>('preview');
+  const [viewMode, setViewMode] = useState<'tiptap' | 'preview' | 'markdown'>(
+    note.file_type === 'md' ? 'markdown' : 'tiptap'
+  );
 
   // Modal / prompt dialog states
   const [showBookmarkPrompt, setShowBookmarkPrompt] = useState(false);
@@ -97,6 +102,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     setCategoryId(note.category_id);
     setFolderId(note.folder_id);
     setIsSaved(true);
+    if (note.file_type === 'md') {
+      setViewMode('markdown');
+    } else {
+      setViewMode('tiptap');
+    }
   }, [note]);
 
   useEffect(() => {
@@ -765,6 +775,44 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <span>Pública</span>
           </span>
         ) : null}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              padding: '2px 8px',
+              borderRadius: 4,
+              backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            {note.file_type === 'md' ? 'Markdown' : 'DOCX (Word)'}
+          </span>
+
+          <button
+            type="button"
+            className="toolbar-btn"
+            onClick={() => window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank')}
+            title="Exportar como Microsoft Word (.docx)"
+            aria-label="Exportar DOCX"
+          >
+            <FileDown size={15} />
+            <span style={{ fontSize: '0.78rem' }}>DOCX</span>
+          </button>
+
+          <button
+            type="button"
+            className="toolbar-btn"
+            onClick={() => window.print()}
+            title="Exportar ou Imprimir como PDF"
+            aria-label="Exportar PDF"
+          >
+            <Printer size={15} />
+            <span style={{ fontSize: '0.78rem' }}>PDF</span>
+          </button>
+        </div>
       </div>
 
       {/* Inline Quick Insert: Wikilink Prompt (RF-07, RF-08, RF-09) */}
@@ -1094,6 +1142,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           onInsertWikilink={() => setShowWikilinkPrompt(true)}
           onInsertMath={() => setShowMathPrompt(true)}
           onInsertAnchor={() => setShowAnchorPrompt(true)}
+          noteTitle={title}
+          noteId={note.id}
+          onExportDocx={() => {
+            window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank');
+          }}
+          onExportMarkdown={() => {
+            window.open(api.getNoteExportUrl(note.id, 'md'), '_blank');
+          }}
+          onExportPdf={() => {
+            window.print();
+          }}
         />
       ) : viewMode === 'markdown' ? (
         <textarea

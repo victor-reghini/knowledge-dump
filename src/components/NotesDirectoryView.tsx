@@ -20,7 +20,8 @@ import {
   FolderOpen,
   Check,
   X,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 
 interface NotesDirectoryViewProps {
@@ -34,7 +35,7 @@ interface NotesDirectoryViewProps {
   onSelectNote: (id: string) => void;
   onSelectReference?: (ref: ReferenceFile) => void;
   onUpdateReference?: (id: string, data: Partial<ReferenceFile>) => Promise<void>;
-  onNewNote: () => void;
+  onNewNote: (fileType?: 'docx' | 'md') => void;
   onOpenShareModal: (note: Note) => void;
 }
 
@@ -55,6 +56,7 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
   const [layout, setLayout] = useState<DirectoryViewLayout>('grid');
   const [filterText, setFilterText] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'notes' | 'references'>('all');
+  const [showNewNoteMenu, setShowNewNoteMenu] = useState(false);
 
   // Organizing modal state for a reference file
   const [organizingRef, setOrganizingRef] = useState<ReferenceFile | null>(null);
@@ -200,10 +202,58 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
             </button>
           </div>
 
-          <button className="sidebar-action-btn" style={{ margin: 0, padding: '7px 14px' }} onClick={onNewNote}>
-            <Plus size={16} />
-            <span>Nova Nota</span>
-          </button>
+          <div style={{ position: 'relative', display: 'flex', gap: 2 }}>
+            <button
+              className="sidebar-action-btn"
+              style={{ margin: 0, padding: '7px 14px' }}
+              onClick={() => onNewNote('docx')}
+              title="Nova Nota no formato Word (DOCX)"
+            >
+              <Plus size={16} />
+              <span>Nova Nota</span>
+            </button>
+            <button
+              className="sidebar-action-btn"
+              style={{ margin: 0, padding: '7px 8px' }}
+              onClick={() => setShowNewNoteMenu(!showNewNoteMenu)}
+              title="Escolher tipo de arquivo"
+            >
+              <ChevronDown size={14} />
+            </button>
+
+            {showNewNoteMenu && (
+              <div className="new-note-dropdown" style={{ right: 0, left: 'auto', top: '100%', marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="new-note-dropdown-item active"
+                  onClick={() => {
+                    onNewNote('docx');
+                    setShowNewNoteMenu(false);
+                  }}
+                >
+                  <FileText size={16} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Documento Word (.docx)</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Padrão • Editor Completo</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="new-note-dropdown-item"
+                  onClick={() => {
+                    onNewNote('md');
+                    setShowNewNoteMenu(false);
+                  }}
+                >
+                  <FileCode size={16} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Documento Markdown (.md)</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Texto puro com sintaxe MD</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

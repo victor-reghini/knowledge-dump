@@ -328,3 +328,65 @@ export function saveDocxFile(filePath: string, updatedText: string): void {
   const packedBuffer = packZipEntries(entries);
   fs.writeFileSync(filePath, packedBuffer);
 }
+
+/**
+ * Converte título e conteúdo HTML/Markdown em um Buffer de documento DOCX válido
+ */
+export function buildDocxFromContent(title: string, content: string): Buffer {
+  const entries: Record<string, Buffer> = {};
+  entries['[Content_Types].xml'] = Buffer.from(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n' +
+    '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
+    '  <Default Extension="xml" ContentType="application/xml"/>\n' +
+    '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\n' +
+    '</Types>',
+    'utf8'
+  );
+  entries['_rels/.rels'] = Buffer.from(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+    '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\n' +
+    '</Relationships>',
+    'utf8'
+  );
+
+  // Normaliza HTML / Markdown para blocos de texto estruturados
+  const normalized = content
+    .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n\n# $1\n\n')
+    .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n\n## $1\n\n')
+    .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n\n### $1\n\n')
+    .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n\n$1\n\n')
+    .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '\n\n> $1\n\n')
+    .replace(/<li[^>]*>(.*?)<\/li>/gi, '\n- $1')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+
+  const blocks = normalized.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  const pXmls = blocks.map((b) => {
+    if (b.startsWith('# ')) {
+      return `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>${escapeHtml(b.slice(2))}</w:t></w:r></w:p>`;
+    } else if (b.startsWith('## ')) {
+      return `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>${escapeHtml(b.slice(3))}</w:t></w:r></w:p>`;
+    } else if (b.startsWith('### ')) {
+      return `<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>${escapeHtml(b.slice(4))}</w:t></w:r></w:p>`;
+    } else if (b.startsWith('> ')) {
+      return `<w:p><w:pPr><w:ind w:left="720"/></w:pPr><w:r><w:rPr><w:i/></w:rPr><w:t>${escapeHtml(b.slice(2))}</w:t></w:r></w:p>`;
+    } else if (b.startsWith('- ') || b.startsWith('* ')) {
+      return `<w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t>• ${escapeHtml(b.slice(2))}</w:t></w:r></w:p>`;
+    }
+    return `<w:p><w:r><w:t xml:space="preserve">${escapeHtml(b)}</w:t></w:r></w:p>`;
+  });
+
+  const docXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n' +
+    '  <w:body>\n' +
+    `    <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="44"/></w:rPr><w:t>${escapeHtml(title)}</w:t></w:r></w:p>\n` +
+    `    ${pXmls.join('\n    ') || '<w:p><w:r><w:t></w:t></w:r></w:p>'}\n` +
+    '  </w:body>\n' +
+    '</w:document>';
+
+  entries['word/document.xml'] = Buffer.from(docXml, 'utf8');
+  return packZipEntries(entries);
+}

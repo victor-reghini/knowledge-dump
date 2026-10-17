@@ -89,6 +89,7 @@ export interface Note {
   user_id?: string;
   title: string;
   content: string;
+  file_type?: string;
   category_id: string | null;
   category_name?: string;
   category_color?: string;

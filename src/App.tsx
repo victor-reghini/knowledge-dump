@@ -10,7 +10,7 @@ import { ShareModal } from './components/ShareModal';
 import { AuthModal } from './components/AuthModal';
 import { PublicNoteView } from './components/PublicNoteView';
 import { ReferenceViewer } from './components/ReferenceViewer';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -27,8 +27,13 @@ export const App: React.FC = () => {
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Split-View & Document Viewer states (RF-14, RF-15, RF-16, RF-18, RF-19)
+  // View and Split-View states (Individual reference viewing & Dual Split View)
+  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference'>('directory');
   const [isSplitViewOpen, setIsSplitViewOpen] = useState(false);
+  const [splitPaneMode, setSplitPaneMode] = useState<'reference' | 'note'>('reference');
+  const [splitSecondaryNoteId, setSplitSecondaryNoteId] = useState<string | null>(null);
+  const [splitSecondaryNote, setSplitSecondaryNote] = useState<Note | null>(null);
+
   const [activeReference, setActiveReference] = useState<ReferenceFile | null>(null);
   const [pdfInitialPage, setPdfInitialPage] = useState<number>(1);
   const [initialParagraph, setInitialParagraph] = useState<number | undefined>();
@@ -127,6 +132,18 @@ export const App: React.FC = () => {
       .catch((err) => console.error('Erro ao abrir nota:', err));
   }, [activeNoteId]);
 
+  // Load secondary note in split-view
+  useEffect(() => {
+    if (!splitSecondaryNoteId) {
+      setSplitSecondaryNote(null);
+      return;
+    }
+    api
+      .getNote(splitSecondaryNoteId)
+      .then((data) => setSplitSecondaryNote(data))
+      .catch((err) => console.error('Erro ao abrir nota secundária:', err));
+  }, [splitSecondaryNoteId]);
+
   // Keyboard shortcut Cmd+K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -144,18 +161,26 @@ export const App: React.FC = () => {
     setSelectedFolderId(folderId);
     setSelectedCategoryId(null);
     setActiveNoteId(null);
+    setMainViewMode('directory');
   };
 
   const handleSelectCategory = (categoryId: string | null) => {
     setSelectedCategoryId(categoryId);
     setSelectedFolderId(null);
     setActiveNoteId(null);
+    setMainViewMode('directory');
   };
 
   const handleViewAllNotes = () => {
     setSelectedCategoryId(null);
     setSelectedFolderId(null);
     setActiveNoteId(null);
+    setMainViewMode('directory');
+  };
+
+  const handleSelectNote = (id: string) => {
+    setActiveNoteId(id);
+    setMainViewMode('note');
   };
 
   // Folder management
@@ -238,12 +263,17 @@ export const App: React.FC = () => {
     }
   };
 
-  // References & PDF Handlers
-  const handleSelectReference = (ref: ReferenceFile) => {
+  // References & Document Handlers (Stand-alone individual viewer or Split View)
+  const handleSelectReference = (ref: ReferenceFile, openInSplit: boolean = false) => {
     setActiveReference(ref);
-    setIsSplitViewOpen(true);
     setPdfInitialPage(1);
     setPdfHighlightText(undefined);
+    if (openInSplit || (isSplitViewOpen && mainViewMode === 'note')) {
+      setIsSplitViewOpen(true);
+      setSplitPaneMode('reference');
+    } else {
+      setMainViewMode('reference');
+    }
   };
 
   const handleUploadPdf = async (file: File) => {
@@ -417,17 +447,24 @@ export const App: React.FC = () => {
     }
   };
 
-  // Create Note
-  const handleCreateNote = async () => {
+  // Create Note with chosen file_type ('docx' default or 'md')
+  const handleCreateNote = async (fileType: 'docx' | 'md' = 'docx') => {
     try {
+      const isMd = fileType === 'md';
+      const defaultContent = isMd
+        ? '# Nova Anotação\n\nComece a escrever seu conhecimento em Markdown aqui...'
+        : '<p>Comece a escrever seu documento aqui...</p>';
+
       const newNote = await api.createNote({
-        title: 'Nova Anotação',
-        content: '# Nova Anotação\n\nComece a escrever seu conhecimento aqui...',
+        title: isMd ? 'Nova Anotação Markdown' : 'Novo Documento Word',
+        content: defaultContent,
         category_id: selectedCategoryId || undefined,
-        folder_id: selectedFolderId || undefined
+        folder_id: selectedFolderId || undefined,
+        file_type: fileType
       });
       setNotes((prev) => [newNote, ...prev]);
       setActiveNoteId(newNote.id);
+      setMainViewMode('note');
     } catch (err) {
       console.error('Erro ao criar nota:', err);
     }
@@ -558,7 +595,7 @@ export const App: React.FC = () => {
         references={references}
         activeNoteId={activeNoteId}
         activeReferenceId={activeReference?.id}
-        onSelectNote={setActiveNoteId}
+        onSelectNote={handleSelectNote}
         onNewNote={handleCreateNote}
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={handleSelectCategory}
@@ -571,7 +608,7 @@ export const App: React.FC = () => {
         onCreateCategory={handleCreateCategory}
         onUpdateCategory={handleUpdateCategory}
         onDeleteCategory={handleDeleteCategory}
-        onSelectReference={handleSelectReference}
+        onSelectReference={(ref) => handleSelectReference(ref, false)}
         onUploadPdf={handleUploadPdf}
         onDeleteReference={handleDeleteReference}
       />
@@ -600,8 +637,9 @@ export const App: React.FC = () => {
             </div>
           ) : (
             <div className={`split-view-container ${isSplitViewOpen ? 'split-active' : ''}`}>
+              {/* Main Content Area: Note, Standalone Reference, or Directory */}
               <div className="split-view-main">
-                {activeNote ? (
+                {mainViewMode === 'note' && activeNote ? (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                     {/* Back to directory view breadcrumb */}
                     <div
@@ -617,7 +655,10 @@ export const App: React.FC = () => {
                     >
                       <button
                         className="toolbar-btn"
-                        onClick={() => setActiveNoteId(null)}
+                        onClick={() => {
+                          setActiveNoteId(null);
+                          setMainViewMode('directory');
+                        }}
                         style={{ padding: '3px 8px' }}
                       >
                         <ArrowLeft size={14} />
@@ -641,8 +682,61 @@ export const App: React.FC = () => {
                       onDeleteCitation={handleDeleteCitation}
                     />
                   </div>
+                ) : mainViewMode === 'reference' && activeReference ? (
+                  /* Standalone Individual Reference Viewer (No split screen required) */
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        padding: '8px 24px',
+                        borderBottom: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.82rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <button
+                          className="toolbar-btn"
+                          onClick={() => setMainViewMode('directory')}
+                          style={{ padding: '3px 8px' }}
+                        >
+                          <ArrowLeft size={14} />
+                          <span>Voltar para {directoryTitle}</span>
+                        </button>
+                        <span style={{ fontWeight: 600 }}>{activeReference.title}</span>
+                        <span className="badge" style={{ textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                          {activeReference.file_type}
+                        </span>
+                      </div>
+
+                      <button
+                        className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
+                        onClick={() => setIsSplitViewOpen((prev) => !prev)}
+                        title="Dividir tela com outra nota ou referência"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Columns size={14} />
+                        <span>{isSplitViewOpen ? 'Fechar Split' : 'Dividir Tela'}</span>
+                      </button>
+                    </div>
+
+                    <div style={{ flex: 1, height: 'calc(100% - 45px)', overflow: 'hidden' }}>
+                      <ReferenceViewer
+                        reference={activeReference}
+                        initialPage={pdfInitialPage}
+                        initialParagraph={initialParagraph}
+                        initialLine={initialLine}
+                        initialTimestamp={initialTimestamp}
+                        highlightText={pdfHighlightText}
+                        onCite={handleCiteFromPdf}
+                        onClose={() => setMainViewMode('directory')}
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  /* Directory View (RF-04: List or Grid view with Notes & References) */
+                  /* Directory View (List or Grid view with Notes & References) */
                   <NotesDirectoryView
                     title={directoryTitle}
                     notes={filteredNotes}
@@ -651,8 +745,8 @@ export const App: React.FC = () => {
                     categories={categories}
                     currentFolder={currentFolder}
                     currentCategory={currentCategory}
-                    onSelectNote={setActiveNoteId}
-                    onSelectReference={handleSelectReference}
+                    onSelectNote={handleSelectNote}
+                    onSelectReference={(ref) => handleSelectReference(ref, false)}
                     onUpdateReference={handleUpdateReference}
                     onNewNote={handleCreateNote}
                     onOpenShareModal={(note) => setShareModalNote(note)}
@@ -660,19 +754,108 @@ export const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Side Document Viewer Panel (Split-View: PDF, DOCX, LaTeX, Vídeo, Áudio, Imagem) */}
-              {isSplitViewOpen && activeReference && (
+              {/* Side Panel (Split-View: Reference or Another Note side-by-side) */}
+              {isSplitViewOpen && (
                 <div className="split-view-side">
-                  <ReferenceViewer
-                    reference={activeReference}
-                    initialPage={pdfInitialPage}
-                    initialParagraph={initialParagraph}
-                    initialLine={initialLine}
-                    initialTimestamp={initialTimestamp}
-                    highlightText={pdfHighlightText}
-                    onCite={handleCiteFromPdf}
-                    onClose={() => setIsSplitViewOpen(false)}
-                  />
+                  <div className="split-view-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div className="split-mode-toggle">
+                        <button
+                          type="button"
+                          className={`split-mode-btn ${splitPaneMode === 'reference' ? 'active' : ''}`}
+                          onClick={() => setSplitPaneMode('reference')}
+                        >
+                          Referência
+                        </button>
+                        <button
+                          type="button"
+                          className={`split-mode-btn ${splitPaneMode === 'note' ? 'active' : ''}`}
+                          onClick={() => {
+                            setSplitPaneMode('note');
+                            if (!splitSecondaryNoteId && notes.length > 0) {
+                              const other = notes.find((n) => n.id !== activeNoteId) || notes[0];
+                              if (other) setSplitSecondaryNoteId(other.id);
+                            }
+                          }}
+                        >
+                          Outra Nota
+                        </button>
+                      </div>
+
+                      {splitPaneMode === 'reference' ? (
+                        <select
+                          className="split-select"
+                          value={activeReference?.id || ''}
+                          onChange={(e) => {
+                            const found = references.find((r) => r.id === e.target.value);
+                            if (found) setActiveReference(found);
+                          }}
+                          title="Alternar arquivo de referência"
+                        >
+                          {references.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.title} ({r.file_type.toUpperCase()})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          className="split-select"
+                          value={splitSecondaryNoteId || ''}
+                          onChange={(e) => setSplitSecondaryNoteId(e.target.value)}
+                          title="Alternar segunda nota"
+                        >
+                          {notes.map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {n.title}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="toolbar-btn close-btn"
+                      onClick={() => setIsSplitViewOpen(false)}
+                      title="Fechar tela dividida"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  <div className="split-view-content">
+                    {splitPaneMode === 'reference' && activeReference ? (
+                      <ReferenceViewer
+                        reference={activeReference}
+                        initialPage={pdfInitialPage}
+                        initialParagraph={initialParagraph}
+                        initialLine={initialLine}
+                        initialTimestamp={initialTimestamp}
+                        highlightText={pdfHighlightText}
+                        onCite={handleCiteFromPdf}
+                        onClose={() => setIsSplitViewOpen(false)}
+                      />
+                    ) : splitPaneMode === 'note' && splitSecondaryNote ? (
+                      <NoteEditor
+                        note={splitSecondaryNote}
+                        categories={categories}
+                        folders={folders}
+                        allNotes={notes}
+                        onSave={handleSaveNote}
+                        onDelete={handleDeleteNote}
+                        onNavigateToNoteTitle={handleNavigateToNoteTitle}
+                        onAddBookmark={handleAddBookmark}
+                        onOpenShare={(note) => setShareModalNote(note)}
+                        onOpenPdfDeepLink={handleOpenPdfDeepLink}
+                        onDeleteCitation={handleDeleteCitation}
+                      />
+                    ) : (
+                      <div className="empty-state" style={{ padding: 24 }}>
+                        <p>Selecione um item para exibir neste painel dividido.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

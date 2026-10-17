@@ -72,6 +72,7 @@ export function initDatabase() {
       content TEXT NOT NULL DEFAULT '',
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
       folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
+      file_type TEXT DEFAULT 'docx',
       is_favorite INTEGER DEFAULT 0,
       is_public INTEGER DEFAULT 0,
       share_token TEXT UNIQUE,
@@ -156,6 +157,7 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE notes ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL;"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN is_favorite INTEGER DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE notes ADD COLUMN file_type TEXT DEFAULT 'docx';"); } catch {}
   try { db.exec("ALTER TABLE notes ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;"); } catch {}
 
   try { db.exec("ALTER TABLE folders ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}

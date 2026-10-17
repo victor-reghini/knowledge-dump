@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
-import { parseDocxFile, saveDocxFile } from './docx.js';
+import { parseDocxFile, saveDocxFile, buildDocxFromContent } from './docx.js';
 import { parsePptxFile } from './pptx.js';
 
 initDatabase();
@@ -406,15 +406,17 @@ server.post('/api/notes', async (request) => {
     content?: string;
     category_id?: string;
     folder_id?: string;
+    file_type?: string;
     tags?: string[];
   };
 
   const id = `note-${Date.now()}`;
   const content = body.content || '';
+  const file_type = body.file_type || 'docx';
   db.prepare(`
-    INSERT INTO notes (id, user_id, title, content, category_id, folder_id)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, userId, body.title, content, body.category_id || null, body.folder_id || null);
+    INSERT INTO notes (id, user_id, title, content, category_id, folder_id, file_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, userId, body.title, content, body.category_id || null, body.folder_id || null, file_type);
 
   // FTS5
   if (hasFts5) {
@@ -436,7 +438,7 @@ server.post('/api/notes', async (request) => {
   // Wikilinks
   extractAndSaveWikilinks(id, content);
 
-  return { id, user_id: userId, ...body };
+  return { id, user_id: userId, ...body, file_type };
 });
 
 // Update Note
@@ -447,6 +449,7 @@ server.put('/api/notes/:id', async (request, reply) => {
     content?: string;
     category_id?: string;
     folder_id?: string;
+    file_type?: string;
     is_favorite?: boolean;
     tags?: string[];
   };
@@ -460,13 +463,14 @@ server.put('/api/notes/:id', async (request, reply) => {
   const content = String(body.content !== undefined ? body.content : existing.content);
   const category_id = body.category_id !== undefined ? (body.category_id || null) : ((existing.category_id as string) || null);
   const folder_id = body.folder_id !== undefined ? (body.folder_id || null) : ((existing.folder_id as string) || null);
+  const file_type = String(body.file_type !== undefined ? body.file_type : (existing.file_type || 'docx'));
   const is_favorite = body.is_favorite !== undefined ? (body.is_favorite ? 1 : 0) : Number(existing.is_favorite || 0);
 
   db.prepare(`
     UPDATE notes
-    SET title = ?, content = ?, category_id = ?, folder_id = ?, is_favorite = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, content = ?, category_id = ?, folder_id = ?, file_type = ?, is_favorite = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(title, content, category_id, folder_id, is_favorite, id);
+  `).run(title, content, category_id, folder_id, file_type, is_favorite, id);
 
   // Update FTS5
   if (hasFts5) {
@@ -499,6 +503,40 @@ server.put('/api/notes/:id', async (request, reply) => {
   `).get(id);
 
   return updatedNote;
+});
+
+// Export Note (DOCX or Markdown)
+server.get('/api/notes/:id/export', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const query = request.query as { format?: string };
+
+  const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as {
+    id: string;
+    title: string;
+    content: string;
+    file_type?: string;
+  } | undefined;
+
+  if (!note) {
+    return reply.status(404).send({ error: 'Nota não encontrada' });
+  }
+
+  const format = (query.format || note.file_type || 'docx').toLowerCase();
+  const safeFilename = encodeURIComponent(
+    note.title.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_') || 'nota'
+  );
+
+  if (format === 'md' || format === 'markdown') {
+    reply.header('Content-Type', 'text/markdown; charset=utf-8');
+    reply.header('Content-Disposition', `attachment; filename="${safeFilename}.md"`);
+    return `# ${note.title}\n\n${note.content || ''}`;
+  }
+
+  // Default: DOCX
+  const docxBuffer = buildDocxFromContent(note.title, note.content || '');
+  reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  reply.header('Content-Disposition', `attachment; filename="${safeFilename}.docx"`);
+  return reply.send(docxBuffer);
 });
 
 // Delete Note

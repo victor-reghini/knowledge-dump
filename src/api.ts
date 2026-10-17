@@ -186,7 +186,7 @@ export const api = {
     return res.json();
   },
 
-  async createNote(data: { title: string; content?: string; category_id?: string; folder_id?: string; tags?: string[] }): Promise<Note> {
+  async createNote(data: { title: string; content?: string; category_id?: string; folder_id?: string; file_type?: string; tags?: string[] }): Promise<Note> {
     const res = await fetch(`${BASE_URL}/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -202,6 +202,10 @@ export const api = {
       body: JSON.stringify(data)
     });
     return res.json();
+  },
+
+  getNoteExportUrl(id: string, format: 'docx' | 'md' = 'docx'): string {
+    return `${BASE_URL}/notes/${id}/export?format=${format}`;
   },
 
   async deleteNote(id: string): Promise<{ success: boolean }> {

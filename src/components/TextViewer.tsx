@@ -178,6 +178,18 @@ export const TextViewer: React.FC<TextViewerProps> = ({
     }
   };
 
+  // Keyboard shortcut Ctrl+S / Cmd+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [content]);
+
   const lines = content.split('\n');
 
   // Renderizador simples de Markdown nativo sem dependências externas
@@ -329,7 +341,7 @@ export const TextViewer: React.FC<TextViewerProps> = ({
           >
             <Save size={14} />
             <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
             </span>
           </button>
 
