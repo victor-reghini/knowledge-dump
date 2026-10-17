@@ -822,6 +822,16 @@ a:hover {
   to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+
 .modal-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);

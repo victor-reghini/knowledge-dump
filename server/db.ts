@@ -56,7 +56,8 @@ export function initDatabase() {
       color TEXT DEFAULT '#eab308',
       icon TEXT DEFAULT 'folder',
       parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS tags (
@@ -105,7 +106,8 @@ export function initDatabase() {
       page_or_pos TEXT,
       comment TEXT,
       color TEXT DEFAULT '#eab308',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS references_files (
@@ -119,7 +121,8 @@ export function initDatabase() {
       doi TEXT,
       folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS citations (
@@ -217,6 +220,14 @@ export function initDatabase() {
       page_number INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS sync_tombstones (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // FTS5 Initialization (com fallback resiliente caso o SQLite do ambiente não possua FTS5)
@@ -254,9 +265,33 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN color TEXT DEFAULT '#eab308';"); } catch {}
   try { db.exec("ALTER TABLE categories ADD COLUMN icon TEXT DEFAULT 'folder';"); } catch {}
+  try {
+    db.exec("ALTER TABLE categories ADD COLUMN updated_at TEXT;");
+    db.exec("UPDATE categories SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;");
+  } catch {}
 
   try { db.exec("ALTER TABLE bookmarks ADD COLUMN reference_id TEXT;"); } catch {}
   try { db.exec("ALTER TABLE bookmarks ADD COLUMN color TEXT DEFAULT '#eab308';"); } catch {}
+  try {
+    db.exec("ALTER TABLE bookmarks ADD COLUMN updated_at TEXT;");
+    db.exec("UPDATE bookmarks SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;");
+  } catch {}
+
+  try {
+    db.exec("ALTER TABLE references_files ADD COLUMN updated_at TEXT;");
+    db.exec("UPDATE references_files SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;");
+  } catch {}
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_tombstones (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch {}
 
   try { db.exec("ALTER TABLE references_files ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;"); } catch {}
   try { db.exec("ALTER TABLE references_files ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL;"); } catch {}
@@ -480,3 +515,16 @@ Ver também: [[Redes Neurais Artificiais]]
     VALUES ('bm-1', ?, 'Fundamentos do Perceptron', 'Revisar convergência do algoritmo de treino', '#eab308')
   `).run(noteId1);
 }
+
+export function recordTombstone(entityType: string, entityId: string, userId: string | null = null): void {
+  try {
+    const id = `tomb-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    db.prepare(`
+      INSERT INTO sync_tombstones (id, user_id, entity_type, entity_id, deleted_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(id, userId, entityType, entityId);
+  } catch (err) {
+    console.warn(`[Sync] Failed to record tombstone for ${entityType} ${entityId}:`, err);
+  }
+}
+

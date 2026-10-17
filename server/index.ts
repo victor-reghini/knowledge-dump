@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
-import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
+import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR, recordTombstone } from './db.js';
 import { parseDocxFile, saveDocxFile, buildDocxFromContent } from './docx.js';
 import { parsePptxFile } from './pptx.js';
 import { compileToMarkdown, compileToLatex, compileToDocx, compileToPdf, CitationItem, ArticleExportData, CompileOptions } from './export.js';
@@ -231,7 +231,7 @@ server.put('/api/categories/:id', async (request, reply) => {
   const icon = body.icon !== undefined ? body.icon : existing.icon;
   const parent_id = body.parent_id !== undefined ? body.parent_id : existing.parent_id;
 
-  db.prepare('UPDATE categories SET name = ?, color = ?, icon = ?, parent_id = ? WHERE id = ?').run(
+  db.prepare('UPDATE categories SET name = ?, color = ?, icon = ?, parent_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
     name,
     color,
     icon,
@@ -242,7 +242,9 @@ server.put('/api/categories/:id', async (request, reply) => {
 });
 
 server.delete('/api/categories/:id', async (request) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('category', id, userId);
   db.prepare('UPDATE notes SET category_id = NULL WHERE category_id = ?').run(id);
   db.prepare('UPDATE categories SET parent_id = NULL WHERE parent_id = ?').run(id);
   db.prepare('DELETE FROM categories WHERE id = ?').run(id);
@@ -280,7 +282,9 @@ server.put('/api/folders/:id', async (request, reply) => {
 });
 
 server.delete('/api/folders/:id', async (request) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('folder', id, userId);
   db.prepare('UPDATE notes SET folder_id = NULL WHERE folder_id = ?').run(id);
   db.prepare('UPDATE folders SET parent_id = NULL WHERE parent_id = ?').run(id);
   db.prepare('DELETE FROM folders WHERE id = ?').run(id);
@@ -542,7 +546,9 @@ server.get('/api/notes/:id/export', async (request, reply) => {
 
 // Delete Note
 server.delete('/api/notes/:id', async (request) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('note', id, userId);
   db.prepare('DELETE FROM notes WHERE id = ?').run(id);
   if (hasFts5) {
     try {
@@ -581,7 +587,9 @@ server.post('/api/bookmarks', async (request) => {
 });
 
 server.delete('/api/bookmarks/:id', async (request) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('bookmark', id, userId);
   db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id);
   return { success: true };
 });
@@ -964,7 +972,9 @@ server.put('/api/references/:id', async (request, reply) => {
 
 // Delete Reference
 server.delete('/api/references/:id', async (request) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('reference', id, userId);
   db.prepare('DELETE FROM citations WHERE reference_id = ?').run(id);
   db.prepare('DELETE FROM references_files WHERE id = ?').run(id);
   return { success: true, id };
@@ -1915,7 +1925,9 @@ server.put('/api/articles/:id', async (request, reply) => {
 
 // Delete Article
 server.delete('/api/articles/:id', async (request, reply) => {
+  const userId = getUserId(request);
   const { id } = request.params as { id: string };
+  recordTombstone('article', id, userId);
   db.prepare('DELETE FROM articles WHERE id = ?').run(id);
   return { success: true, id };
 });
@@ -2111,6 +2123,350 @@ server.get('/api/articles/:id/export', async (request, reply) => {
   }
 
   return reply.status(400).send({ error: `Formato de exportação não suportado: ${format}` });
+});
+
+// --- PWA INCREMENTAL SYNC API (RF-34, RNF-07, RN-06) ---
+
+server.get('/api/sync/status', async (request) => {
+  const userId = getUserId(request);
+  const serverTime = new Date().toISOString();
+  const notesCount = (db.prepare('SELECT count(*) as c FROM notes WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const foldersCount = (db.prepare('SELECT count(*) as c FROM folders WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const categoriesCount = (db.prepare('SELECT count(*) as c FROM categories WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+  const bookmarksCount = (db.prepare('SELECT count(*) as c FROM bookmarks').get() as { c: number }).c;
+  const tombstonesCount = (db.prepare('SELECT count(*) as c FROM sync_tombstones WHERE user_id = ? OR user_id IS NULL').get(userId) as { c: number }).c;
+
+  return {
+    status: 'online',
+    server_time: serverTime,
+    user_id: userId,
+    counts: {
+      notes: notesCount,
+      folders: foldersCount,
+      categories: categoriesCount,
+      bookmarks: bookmarksCount,
+      tombstones: tombstonesCount
+    }
+  };
+});
+
+server.post('/api/sync', async (request) => {
+  const userId = getUserId(request);
+  const body = (request.body || {}) as {
+    client_id?: string;
+    last_synced_at?: string | null;
+    changes?: {
+      notes?: Array<{
+        id: string;
+        title: string;
+        content?: string;
+        category_id?: string | null;
+        folder_id?: string | null;
+        file_type?: string;
+        is_favorite?: boolean | number;
+        tags?: string[];
+        created_at?: string;
+        updated_at?: string;
+      }>;
+      folders?: Array<{
+        id: string;
+        name: string;
+        parent_id?: string | null;
+        created_at?: string;
+        updated_at?: string;
+      }>;
+      categories?: Array<{
+        id: string;
+        name: string;
+        color?: string;
+        icon?: string;
+        parent_id?: string | null;
+        created_at?: string;
+        updated_at?: string;
+      }>;
+      bookmarks?: Array<{
+        id: string;
+        note_id?: string | null;
+        reference_id?: string | null;
+        title: string;
+        page_or_pos?: string | null;
+        comment?: string | null;
+        color?: string;
+        created_at?: string;
+        updated_at?: string;
+      }>;
+    };
+  };
+
+  const changes = body.changes || {};
+  const serverTime = new Date().toISOString();
+
+  const applied = {
+    notes: 0,
+    folders: 0,
+    categories: 0,
+    bookmarks: 0,
+    conflicts: [] as Array<{ entity_type: string; entity_id: string; reason: string }>
+  };
+
+  const parseTime = (t?: string | null): number => {
+    if (!t) return 0;
+    const d = new Date(t);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  // 1. Categories
+  if (Array.isArray(changes.categories)) {
+    for (const cat of changes.categories) {
+      if (!cat.id || !cat.name) continue;
+      const existing = db.prepare('SELECT id, updated_at FROM categories WHERE id = ?').get(cat.id) as { id: string; updated_at?: string } | undefined;
+      const incomingTime = parseTime(cat.updated_at);
+      if (existing) {
+        const existingTime = parseTime(existing.updated_at);
+        if (incomingTime && incomingTime < existingTime) {
+          applied.conflicts.push({ entity_type: 'category', entity_id: cat.id, reason: 'server_newer' });
+          continue;
+        }
+        db.prepare(`
+          UPDATE categories
+          SET name = ?, color = ?, icon = ?, parent_id = ?, updated_at = ?
+          WHERE id = ?
+        `).run(cat.name, cat.color || '#eab308', cat.icon || 'folder', cat.parent_id || null, cat.updated_at || serverTime, cat.id);
+      } else {
+        db.prepare(`
+          INSERT INTO categories (id, user_id, name, color, icon, parent_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(cat.id, userId, cat.name, cat.color || '#eab308', cat.icon || 'folder', cat.parent_id || null, cat.created_at || serverTime, cat.updated_at || serverTime);
+      }
+      applied.categories++;
+    }
+  }
+
+  // 2. Folders
+  if (Array.isArray(changes.folders)) {
+    for (const folder of changes.folders) {
+      if (!folder.id || !folder.name) continue;
+      const existing = db.prepare('SELECT id, updated_at FROM folders WHERE id = ?').get(folder.id) as { id: string; updated_at?: string } | undefined;
+      const incomingTime = parseTime(folder.updated_at);
+      if (existing) {
+        const existingTime = parseTime(existing.updated_at);
+        if (incomingTime && incomingTime < existingTime) {
+          applied.conflicts.push({ entity_type: 'folder', entity_id: folder.id, reason: 'server_newer' });
+          continue;
+        }
+        db.prepare(`
+          UPDATE folders
+          SET name = ?, parent_id = ?, updated_at = ?
+          WHERE id = ?
+        `).run(folder.name, folder.parent_id || null, folder.updated_at || serverTime, folder.id);
+      } else {
+        db.prepare(`
+          INSERT INTO folders (id, user_id, name, parent_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(folder.id, userId, folder.name, folder.parent_id || null, folder.created_at || serverTime, folder.updated_at || serverTime);
+      }
+      applied.folders++;
+    }
+  }
+
+  // 3. Notes
+  if (Array.isArray(changes.notes)) {
+    for (const note of changes.notes) {
+      if (!note.id || !note.title) continue;
+      const existing = db.prepare('SELECT id, updated_at FROM notes WHERE id = ?').get(note.id) as { id: string; updated_at?: string } | undefined;
+      const incomingTime = parseTime(note.updated_at);
+      const isFav = note.is_favorite ? 1 : 0;
+      const content = note.content || '';
+      const fileType = note.file_type || 'docx';
+      const catId = note.category_id || null;
+      const folderId = note.folder_id || null;
+      const noteUpdated = note.updated_at || serverTime;
+
+      if (existing) {
+        const existingTime = parseTime(existing.updated_at);
+        if (incomingTime && incomingTime < existingTime) {
+          applied.conflicts.push({ entity_type: 'note', entity_id: note.id, reason: 'server_newer' });
+          continue;
+        }
+        db.prepare(`
+          UPDATE notes
+          SET title = ?, content = ?, category_id = ?, folder_id = ?, file_type = ?, is_favorite = ?, updated_at = ?
+          WHERE id = ?
+        `).run(note.title, content, catId, folderId, fileType, isFav, noteUpdated, note.id);
+      } else {
+        db.prepare(`
+          INSERT INTO notes (id, user_id, title, content, category_id, folder_id, file_type, is_favorite, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(note.id, userId, note.title, content, catId, folderId, fileType, isFav, note.created_at || serverTime, noteUpdated);
+      }
+
+      if (hasFts5) {
+        try {
+          db.prepare('DELETE FROM notes_fts WHERE note_id = ?').run(note.id);
+          db.prepare('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)').run(note.id, note.title, content);
+        } catch {}
+      }
+
+      if (Array.isArray(note.tags)) {
+        db.prepare('DELETE FROM note_tags WHERE note_id = ?').run(note.id);
+        for (const tagName of note.tags) {
+          const trimmed = tagName.trim().toLowerCase();
+          if (!trimmed) continue;
+          db.prepare('INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)').run(`tag-${trimmed}`, trimmed);
+          const tagRow = db.prepare('SELECT id FROM tags WHERE name = ?').get(trimmed) as { id: string } | undefined;
+          if (tagRow) {
+            db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)').run(note.id, tagRow.id);
+          }
+        }
+      }
+
+      applied.notes++;
+    }
+  }
+
+  // 4. Bookmarks
+  if (Array.isArray(changes.bookmarks)) {
+    for (const bm of changes.bookmarks) {
+      if (!bm.id || !bm.title) continue;
+      const existing = db.prepare('SELECT id, updated_at FROM bookmarks WHERE id = ?').get(bm.id) as { id: string; updated_at?: string } | undefined;
+      const incomingTime = parseTime(bm.updated_at);
+      const bmUpdated = bm.updated_at || serverTime;
+
+      if (existing) {
+        const existingTime = parseTime(existing.updated_at);
+        if (incomingTime && incomingTime < existingTime) {
+          applied.conflicts.push({ entity_type: 'bookmark', entity_id: bm.id, reason: 'server_newer' });
+          continue;
+        }
+        db.prepare(`
+          UPDATE bookmarks
+          SET note_id = ?, reference_id = ?, title = ?, page_or_pos = ?, comment = ?, color = ?, updated_at = ?
+          WHERE id = ?
+        `).run(bm.note_id || null, bm.reference_id || null, bm.title, bm.page_or_pos || null, bm.comment || null, bm.color || '#eab308', bmUpdated, bm.id);
+      } else {
+        db.prepare(`
+          INSERT INTO bookmarks (id, note_id, reference_id, title, page_or_pos, comment, color, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(bm.id, bm.note_id || null, bm.reference_id || null, bm.title, bm.page_or_pos || null, bm.comment || null, bm.color || '#eab308', bm.created_at || serverTime, bmUpdated);
+      }
+      applied.bookmarks++;
+    }
+  }
+
+  // 5. Query delta for client
+  let sinceIso: string | null = null;
+  if (body.last_synced_at) {
+    const d = new Date(body.last_synced_at);
+    if (!isNaN(d.getTime())) {
+      sinceIso = d.toISOString();
+    }
+  }
+
+  let deltaNotes: any[];
+  let deltaFolders: any[];
+  let deltaCategories: any[];
+  let deltaBookmarks: any[];
+  let tombstones: Array<{ entity_type: string; entity_id: string; deleted_at: string }>;
+
+  if (sinceIso) {
+    deltaNotes = db.prepare(`
+      SELECT n.*, c.name as category_name, c.color as category_color, f.name as folder_name
+      FROM notes n
+      LEFT JOIN categories c ON n.category_id = c.id
+      LEFT JOIN folders f ON n.folder_id = f.id
+      WHERE (n.user_id = ? OR n.user_id IS NULL)
+        AND datetime(n.updated_at) > datetime(?)
+      ORDER BY n.updated_at DESC
+    `).all(userId, sinceIso);
+
+    deltaFolders = db.prepare(`
+      SELECT * FROM folders
+      WHERE (user_id = ? OR user_id IS NULL)
+        AND datetime(updated_at) > datetime(?)
+      ORDER BY name ASC
+    `).all(userId, sinceIso);
+
+    deltaCategories = db.prepare(`
+      SELECT * FROM categories
+      WHERE (user_id = ? OR user_id IS NULL)
+        AND datetime(updated_at) > datetime(?)
+      ORDER BY name ASC
+    `).all(userId, sinceIso);
+
+    deltaBookmarks = db.prepare(`
+      SELECT b.*, n.title as note_title
+      FROM bookmarks b
+      LEFT JOIN notes n ON b.note_id = n.id
+      WHERE (n.user_id = ? OR n.user_id IS NULL OR b.note_id IS NULL)
+        AND datetime(b.updated_at) > datetime(?)
+      ORDER BY b.created_at DESC
+    `).all(userId, sinceIso);
+
+    tombstones = db.prepare(`
+      SELECT entity_type, entity_id, deleted_at
+      FROM sync_tombstones
+      WHERE (user_id = ? OR user_id IS NULL)
+        AND datetime(deleted_at) > datetime(?)
+      ORDER BY deleted_at ASC
+    `).all(userId, sinceIso) as Array<{ entity_type: string; entity_id: string; deleted_at: string }>;
+  } else {
+    deltaNotes = db.prepare(`
+      SELECT n.*, c.name as category_name, c.color as category_color, f.name as folder_name
+      FROM notes n
+      LEFT JOIN categories c ON n.category_id = c.id
+      LEFT JOIN folders f ON n.folder_id = f.id
+      WHERE (n.user_id = ? OR n.user_id IS NULL)
+      ORDER BY n.updated_at DESC
+    `).all(userId);
+
+    deltaFolders = db.prepare(`
+      SELECT * FROM folders
+      WHERE (user_id = ? OR user_id IS NULL)
+      ORDER BY name ASC
+    `).all(userId);
+
+    deltaCategories = db.prepare(`
+      SELECT * FROM categories
+      WHERE (user_id = ? OR user_id IS NULL)
+      ORDER BY name ASC
+    `).all(userId);
+
+    deltaBookmarks = db.prepare(`
+      SELECT b.*, n.title as note_title
+      FROM bookmarks b
+      LEFT JOIN notes n ON b.note_id = n.id
+      WHERE (n.user_id = ? OR n.user_id IS NULL OR b.note_id IS NULL)
+      ORDER BY b.created_at DESC
+    `).all(userId);
+
+    tombstones = db.prepare(`
+      SELECT entity_type, entity_id, deleted_at
+      FROM sync_tombstones
+      WHERE (user_id = ? OR user_id IS NULL)
+      ORDER BY deleted_at ASC
+    `).all(userId) as Array<{ entity_type: string; entity_id: string; deleted_at: string }>;
+  }
+
+  for (const n of deltaNotes) {
+    const tags = db.prepare(`
+      SELECT t.name FROM tags t
+      JOIN note_tags nt ON t.id = nt.tag_id
+      WHERE nt.note_id = ?
+    `).all(n.id) as Array<{ name: string }>;
+    n.tags = tags.map(t => t.name);
+  }
+
+  return {
+    server_time: serverTime,
+    applied,
+    delta: {
+      notes: deltaNotes,
+      folders: deltaFolders,
+      categories: deltaCategories,
+      bookmarks: deltaBookmarks
+    },
+    tombstones
+  };
 });
 
 // Fallback for SPA routing in production

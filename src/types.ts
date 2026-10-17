@@ -301,3 +301,56 @@ export interface CompileResult {
   base64?: string;
   filename: string;
 }
+
+export interface SyncConflict {
+  entity_type: string;
+  entity_id: string;
+  reason: string;
+}
+
+export interface SyncPushPayload {
+  client_id?: string;
+  last_synced_at?: string | null;
+  changes?: {
+    notes?: Note[];
+    folders?: Folder[];
+    categories?: Category[];
+    bookmarks?: Bookmark[];
+  };
+}
+
+export interface SyncResponse {
+  server_time: string;
+  applied: {
+    notes: number;
+    folders: number;
+    categories: number;
+    bookmarks: number;
+    conflicts: SyncConflict[];
+  };
+  delta: {
+    notes: Note[];
+    folders: Folder[];
+    categories: Category[];
+    bookmarks: Bookmark[];
+  };
+  tombstones: Array<{
+    entity_type: string;
+    entity_id: string;
+    deleted_at: string;
+  }>;
+}
+
+export interface SyncStatus {
+  status: 'online' | 'offline';
+  server_time: string;
+  user_id?: string;
+  counts: {
+    notes: number;
+    folders: number;
+    categories: number;
+    bookmarks: number;
+    tombstones: number;
+  };
+}
+

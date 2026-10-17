@@ -1,6 +1,7 @@
-import React from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap, PenTool } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap, PenTool, RefreshCw, Cloud, CloudOff } from 'lucide-react';
 import { User } from '../types';
+import { syncManager, SyncState } from '../utils/syncManager';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -35,6 +36,19 @@ export const Header: React.FC<HeaderProps> = ({
   isCompositionOpen,
   onToggleComposition
 }) => {
+  const [syncState, setSyncState] = useState<SyncState>(syncManager.getState());
+
+  useEffect(() => {
+    return syncManager.subscribe(setSyncState);
+  }, []);
+
+  const handleManualSync = async () => {
+    try {
+      await syncManager.sync();
+    } catch {
+      // Handled in syncManager
+    }
+  };
   return (
     <header className="top-header" role="banner">
       <div className="header-left">
@@ -128,6 +142,43 @@ export const Header: React.FC<HeaderProps> = ({
           <ShieldCheck size={16} style={{ color: 'var(--accent-green)' }} />
           <span>Local-First ({notesCount} notas)</span>
         </div>
+
+        {/* Sync Status Button (RF-34, RNF-07) */}
+        <button
+          className="user-badge-btn"
+          onClick={handleManualSync}
+          disabled={syncState.isSyncing}
+          title={
+            syncState.isSyncing
+              ? 'Sincronizando com a nuvem...'
+              : !syncState.isOnline
+              ? 'Modo Offline: alterações serão sincronizadas ao reconectar'
+              : syncState.lastSyncedAt
+              ? `Última sincronização: ${new Date(syncState.lastSyncedAt).toLocaleTimeString()}`
+              : 'Clique para sincronizar agora'
+          }
+          style={{
+            borderColor: !syncState.isOnline ? 'var(--accent-red)' : undefined,
+            color: !syncState.isOnline ? 'var(--accent-red)' : undefined
+          }}
+        >
+          {syncState.isSyncing ? (
+            <RefreshCw size={14} className="spin" />
+          ) : !syncState.isOnline ? (
+            <CloudOff size={14} />
+          ) : (
+            <Cloud size={14} style={{ color: 'var(--accent-blue)' }} />
+          )}
+          <span>
+            {syncState.isSyncing
+              ? 'Sincronizando...'
+              : !syncState.isOnline
+              ? 'Offline'
+              : syncState.pendingCount > 0
+              ? `${syncState.pendingCount} pendente(s)`
+              : 'Sincronizado'}
+          </span>
+        </button>
 
         {/* User Badge / Login button (RF-36) */}
         <button className="user-badge-btn" onClick={onOpenAuth} title="Conta do Usuário">

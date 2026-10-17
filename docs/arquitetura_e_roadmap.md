@@ -346,11 +346,27 @@ gantt
 
 ### Fase 4: Sincronização PWA Mobile & Integração Google Drive
 
-#### Atividade 4.1: API de Sincronização Incremental para Clientes PWA [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/4.1-sync-incremental-pwa`
+#### Atividade 4.1: API de Sincronização Incremental para Clientes PWA [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/4.1-sync-incremental-pwa`
 - **Responsável:** `agent-development`
-- **Descrição:** Implementar endpoint leve no container para sincronização diferencial com clientes PWA móveis (smartphones), suportando edição offline e resolução de conflitos (RN-06).
+- **Descrição:** Implementar endpoint leve no container para sincronização diferencial com clientes PWA móveis (smartphones), suportando edição offline e resolução de conflitos (RF-34, RNF-07, RN-06).
+- **Entregas Realizadas:**
+  - Modelo de persistência e rastreamento de exclusões em [`server/db.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/db.ts):
+    - Tabela `sync_tombstones` (`id`, `user_id`, `entity_type`, `entity_id`, `deleted_at`) e migrações resilientes de `updated_at` para `categories`, `bookmarks` e `references_files`.
+    - Função utilitária `recordTombstone(entityType, entityId, userId)` conectada a todos os endpoints de exclusão de notas, pastas, categorias, marcadores, referências e artigos em [`server/index.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/index.ts).
+  - API de Sincronização Incremental e Resolução de Conflitos em [`server/index.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/index.ts):
+    - `GET /api/sync/status`: verificação de conectividade em tempo real, timestamp do servidor e contadores do acervo.
+    - `POST /api/sync`: protocolo bidirecional de delta push e pull:
+      - Aplicação de inserções/atualizações de notas (com sincronização imediata no índice FTS5 e tags), pastas, categorias e marcadores.
+      - Resolução de conflitos Last-Write-Wins (LWW) baseada em `updated_at`: alterações com timestamp do servidor mais recente são preservadas e reportadas em `applied.conflicts`.
+      - Recuperação diferencial (delta pull) com filtro temporal `datetime(updated_at) > datetime(?)` e entrega de tombstones para expurgo local de entidades removidas.
+  - Camada de Frontend PWA & Gestor de Sincronização:
+    - Tipagem completa em [`src/types.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/types.ts) (`SyncPushPayload`, `SyncResponse`, `SyncStatus`, `SyncConflict`).
+    - Métodos na API cliente em [`src/api.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/api.ts) (`api.sync()` e `api.getSyncStatus()`).
+    - Gestor resiliente [`src/utils/syncManager.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/utils/syncManager.ts) com fila de alterações offline (`localStorage`), detecção de eventos `online`/`offline` e sincronização automática ao restabelecer conectividade.
+    - Indicador de status e botão de sincronização manual em [`src/components/Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) com estados visuais para sincronizado, sincronizando (com animação CSS nativa) e offline.
+  - Suíte de testes automatizados em [`tests/atividade-4.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-4.1.test.ts) validando status, full pull inicial, push offline com persistência física no SQLite, resolução de conflitos LWW e propagação de tombstones. Todos os 124 testes do projeto aprovados com sucesso.
 
 #### Atividade 4.2: Backup Geral com Upload Direto para o Google Drive [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

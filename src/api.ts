@@ -17,7 +17,10 @@ import {
   Article,
   ArticleCitation,
   CompileOptions,
-  CompileResult
+  CompileResult,
+  SyncPushPayload,
+  SyncResponse,
+  SyncStatus
 } from './types';
 
 const BASE_URL = '/api';
@@ -661,6 +664,24 @@ export const api = {
       body: JSON.stringify({ data, format, options })
     });
     if (!res.ok) throw new Error('Falha ao compilar exportação');
+    return res.json();
+  },
+
+  async sync(payload: SyncPushPayload): Promise<SyncResponse> {
+    const res = await fetch(`${BASE_URL}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Falha na sincronização incremental');
+    return res.json();
+  },
+
+  async getSyncStatus(): Promise<SyncStatus> {
+    const res = await fetch(`${BASE_URL}/sync/status`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Falha ao obter status de sincronização');
     return res.json();
   }
 };
