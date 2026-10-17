@@ -76,8 +76,8 @@ gantt
 
     section Fase 3: Estudos & Síntese
     Visualizador de Grafo Interativo (Ativ 3.1)                :done, c1, 2026-10-30, 2026-10-31
-    Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :active, c2, after c1, 10d
-    Modo de Redação e Exportação Científica (Ativ 3.3)         :c3, after c2, 7d
+    Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :done, c2, after c1, 10d
+    Modo de Redação e Exportação Científica (Ativ 3.3)         :active, c3, after c2, 7d
     Validação do Fluxo de Estudos (Ativ 3.4)                   :c4, after c3, 5d
 
     section Fase 4: Sync PWA Mobile & Google Drive
@@ -272,11 +272,24 @@ gantt
   - Integrações na navegação do aplicativo em [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx) e [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx).
   - Suíte de testes automatizados [`tests/atividade-3.1.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.1.test.ts) cobrindo mapeamento de nós, conexões de Wikilinks e citações, graus de densidade, filtros de categoria e integridade referencial.
 
-#### Atividade 3.2: Módulo de Planos de Estudo e Exercícios [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/3.2-planos-estudo-exercicios`
+#### Atividade 3.2: Módulo de Planos de Estudo e Exercícios [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/3.2-planos-estudo-exercicios`
 - **Responsável:** `agent-development`
-- **Descrição:** Construir trilhas de estudo, banco de questões com gabarito comentado e simulados avaliativos.
+- **Descrição:** Construir trilhas de estudo, banco de questões com gabarito comentado e simulados avaliativos (RF-22 a RF-26 e Cenário 3 BDD).
+- **Entregas Realizadas:**
+  - Modelo de dados relacional em [`server/db.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/db.ts) com tabelas `study_plans`, `study_topics`, `exercises`, `simulations` e `simulation_answers`.
+  - Endpoints no backend Fastify/SQLite em [`server/index.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/index.ts):
+    - Planos e tópicos: `GET/POST /api/study-plans`, `PUT/DELETE /api/study-plans/:id`, `POST /api/study-plans/:id/topics`, `PUT/DELETE /api/study-topics/:id` com cálculo de horas estimadas e progresso percentual.
+    - Banco de exercícios: `GET/POST /api/exercises`, `PUT/DELETE /api/exercises/:id`, `POST /api/exercises/:id/verify` (BDD Cenário 3) com validação de gabarito e retorno imediato dos vínculos conceituais com notas de estudo (`note_id`, `note_title`) e referências citadas (`reference_id`, `reference_title`).
+    - Simulados avaliativos: `GET/POST /api/simulations`, `POST /api/simulations/:id/finish` com computação de pontuação, cronômetro regressivo e diagnóstico automático de tópicos com erro para revisão.
+  - Componente de frontend [`StudyModule.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/StudyModule.tsx) com 4 abas integradas:
+    - *Planos de Estudo*: trilhas com tópicos sequenciais, horas estimadas, status interativo e links para notas e referências do acervo.
+    - *Banco de Exercícios*: resolução com feedback imediato, gabarito comentado e botão com 1 clique para navegar à nota teórica ou referência bibliográfica associada.
+    - *Simulados*: temporizador com contagem regressiva em tempo real, submissão de respostas, cálculo de aproveitamento e diagnóstico de tópicos deficientes.
+    - *Fichamentos*: gerador e exportador de modelos padronizados de resumos e fichamentos bibliográficos (RF-26).
+  - Integração da navegação na [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx) e [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx).
+  - Suíte de testes automatizados [`tests/atividade-3.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.2.test.ts) validando todo o ciclo de planos, exercícios com vínculo conceitual e simulados com diagnóstico.
 
 #### Atividade 3.3: Modo de Redação e Exportação Científica [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

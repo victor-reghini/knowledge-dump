@@ -163,3 +163,91 @@ export interface GraphFilterOptions {
   hideIsolated: boolean;
   showLabels: boolean;
 }
+
+export interface StudyTopic {
+  id: string;
+  plan_id: string;
+  title: string;
+  order_index: number;
+  estimated_hours: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  due_date?: string | null;
+  notes_ids: string[];
+  references_ids: string[];
+  notes?: Note[];
+  references?: ReferenceFile[];
+  exercises_count?: number;
+  created_at?: string;
+}
+
+export interface StudyPlan {
+  id: string;
+  user_id?: string;
+  title: string;
+  description?: string;
+  target_date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  topics?: StudyTopic[];
+  total_topics?: number;
+  completed_topics?: number;
+  progress_percent?: number;
+}
+
+export interface Exercise {
+  id: string;
+  user_id?: string;
+  topic_id?: string | null;
+  topic_title?: string | null;
+  note_id?: string | null;
+  note_title?: string | null;
+  reference_id?: string | null;
+  reference_title?: string | null;
+  question: string;
+  type: 'multiple_choice' | 'open';
+  options: string[];
+  correct_answer: string;
+  explanation: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  created_at?: string;
+}
+
+export interface ExerciseVerifyResult {
+  is_correct: boolean;
+  correct_answer: string;
+  explanation: string;
+  note_id?: string | null;
+  note_title?: string | null;
+  reference_id?: string | null;
+  reference_title?: string | null;
+}
+
+export interface SimulationAnswer {
+  id: string;
+  simulation_id: string;
+  exercise_id: string;
+  selected_answer: string;
+  is_correct: boolean | number;
+  time_spent_seconds?: number;
+  question?: string;
+  explanation?: string;
+  note_id?: string | null;
+  note_title?: string | null;
+  reference_id?: string | null;
+  reference_title?: string | null;
+}
+
+export interface Simulation {
+  id: string;
+  user_id?: string;
+  plan_id?: string | null;
+  plan_title?: string | null;
+  title: string;
+  duration_minutes: number;
+  score: number;
+  total_questions: number;
+  correct_count: number;
+  completed_at?: string | null;
+  created_at?: string;
+  answers?: SimulationAnswer[];
+}

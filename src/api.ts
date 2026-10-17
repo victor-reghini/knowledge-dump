@@ -1,4 +1,20 @@
-import { Note, Folder, Category, Tag, Bookmark, SearchResult, User, ReferenceFile, Citation, GraphData } from './types';
+import {
+  Note,
+  Folder,
+  Category,
+  Tag,
+  Bookmark,
+  SearchResult,
+  User,
+  ReferenceFile,
+  Citation,
+  GraphData,
+  StudyPlan,
+  StudyTopic,
+  Exercise,
+  ExerciseVerifyResult,
+  Simulation
+} from './types';
 
 const BASE_URL = '/api';
 
@@ -386,6 +402,168 @@ export const api = {
       console.warn('Falha ao obter dados do grafo:', res.status);
       return { nodes: [], links: [] };
     }
+    return res.json();
+  },
+
+  // --- STUDY PLANS & TOPICS (RF-22, RF-23) ---
+  async getStudyPlans(): Promise<StudyPlan[]> {
+    const res = await fetch(`${BASE_URL}/study-plans`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createStudyPlan(data: { title: string; description?: string; target_date?: string }): Promise<StudyPlan> {
+    const res = await fetch(`${BASE_URL}/study-plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao criar plano de estudos');
+    return res.json();
+  },
+
+  async updateStudyPlan(id: string, data: Partial<StudyPlan>): Promise<StudyPlan> {
+    const res = await fetch(`${BASE_URL}/study-plans/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar plano de estudos');
+    return res.json();
+  },
+
+  async deleteStudyPlan(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/study-plans/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async addStudyTopic(planId: string, data: {
+    title: string;
+    order_index?: number;
+    estimated_hours?: number;
+    due_date?: string;
+    notes_ids?: string[];
+    references_ids?: string[];
+  }): Promise<StudyTopic> {
+    const res = await fetch(`${BASE_URL}/study-plans/${planId}/topics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao adicionar tópico de estudos');
+    return res.json();
+  },
+
+  async updateStudyTopic(id: string, data: Partial<StudyTopic>): Promise<StudyTopic> {
+    const res = await fetch(`${BASE_URL}/study-topics/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar tópico de estudos');
+    return res.json();
+  },
+
+  async deleteStudyTopic(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/study-topics/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  // --- EXERCISES (RF-24 & BDD Cenário 3) ---
+  async getExercises(params?: { topic_id?: string; note_id?: string }): Promise<Exercise[]> {
+    const query = new URLSearchParams();
+    if (params?.topic_id) query.append('topic_id', params.topic_id);
+    if (params?.note_id) query.append('note_id', params.note_id);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${BASE_URL}/exercises${qs}`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createExercise(data: {
+    topic_id?: string;
+    note_id?: string;
+    reference_id?: string;
+    question: string;
+    type?: string;
+    options?: string[];
+    correct_answer: string;
+    explanation: string;
+    difficulty?: string;
+  }): Promise<Exercise> {
+    const res = await fetch(`${BASE_URL}/exercises`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao cadastrar exercício');
+    return res.json();
+  },
+
+  async updateExercise(id: string, data: Partial<Exercise>): Promise<Exercise> {
+    const res = await fetch(`${BASE_URL}/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar exercício');
+    return res.json();
+  },
+
+  async deleteExercise(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/exercises/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async verifyExercise(id: string, answer: string): Promise<ExerciseVerifyResult> {
+    const res = await fetch(`${BASE_URL}/exercises/${id}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ answer })
+    });
+    if (!res.ok) throw new Error('Falha ao verificar exercício');
+    return res.json();
+  },
+
+  // --- SIMULATIONS (RF-25) ---
+  async getSimulations(): Promise<Simulation[]> {
+    const res = await fetch(`${BASE_URL}/simulations`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createSimulation(data: {
+    title: string;
+    plan_id?: string;
+    topic_ids?: string[];
+    duration_minutes?: number;
+    exercise_ids?: string[];
+  }): Promise<Simulation & { questions: any[] }> {
+    const res = await fetch(`${BASE_URL}/simulations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao iniciar simulado');
+    return res.json();
+  },
+
+  async finishSimulation(id: string, answers: Array<{ exercise_id: string; selected_answer: string; time_spent_seconds?: number }>): Promise<Simulation & { review_recommendations: any[] }> {
+    const res = await fetch(`${BASE_URL}/simulations/${id}/finish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ answers })
+    });
+    if (!res.ok) throw new Error('Falha ao concluir simulado');
     return res.json();
   }
 };

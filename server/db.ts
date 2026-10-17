@@ -131,6 +131,67 @@ export function initDatabase() {
       anchor_data TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS study_plans (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      target_date DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS study_topics (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT REFERENCES study_plans(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      order_index INTEGER DEFAULT 0,
+      estimated_hours REAL DEFAULT 0,
+      status TEXT DEFAULT 'pending',
+      due_date DATETIME,
+      notes_ids TEXT DEFAULT '[]',
+      references_ids TEXT DEFAULT '[]',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS exercises (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      topic_id TEXT REFERENCES study_topics(id) ON DELETE SET NULL,
+      note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
+      reference_id TEXT REFERENCES references_files(id) ON DELETE SET NULL,
+      question TEXT NOT NULL,
+      type TEXT DEFAULT 'multiple_choice',
+      options TEXT DEFAULT '[]',
+      correct_answer TEXT NOT NULL,
+      explanation TEXT NOT NULL,
+      difficulty TEXT DEFAULT 'medium',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS simulations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      plan_id TEXT REFERENCES study_plans(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      duration_minutes INTEGER DEFAULT 30,
+      score REAL DEFAULT 0,
+      total_questions INTEGER DEFAULT 0,
+      correct_count INTEGER DEFAULT 0,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS simulation_answers (
+      id TEXT PRIMARY KEY,
+      simulation_id TEXT REFERENCES simulations(id) ON DELETE CASCADE,
+      exercise_id TEXT REFERENCES exercises(id) ON DELETE CASCADE,
+      selected_answer TEXT,
+      is_correct INTEGER DEFAULT 0,
+      time_spent_seconds INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // FTS5 Initialization (com fallback resiliente caso o SQLite do ambiente não possua FTS5)

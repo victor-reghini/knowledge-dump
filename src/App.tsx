@@ -11,6 +11,7 @@ import { AuthModal } from './components/AuthModal';
 import { PublicNoteView } from './components/PublicNoteView';
 import { ReferenceViewer } from './components/ReferenceViewer';
 import { GraphView } from './components/GraphView';
+import { StudyModule } from './components/StudyModule';
 import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -28,8 +29,8 @@ export const App: React.FC = () => {
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // View and Split-View states (Individual reference viewing & Dual Split View)
-  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph'>('directory');
+  // View and Split-View states (Individual reference viewing, Dual Split View, Graph, and Studies)
+  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph' | 'studies'>('directory');
   const [isSplitViewOpen, setIsSplitViewOpen] = useState(false);
   const [splitPaneMode, setSplitPaneMode] = useState<'reference' | 'note'>('reference');
   const [splitSecondaryNoteId, setSplitSecondaryNoteId] = useState<string | null>(null);
@@ -471,6 +472,24 @@ export const App: React.FC = () => {
     }
   };
 
+  // Create Note with custom Template (e.g., Fichamento Acadêmico RF-26)
+  const handleCreateNoteWithTemplate = async (title: string, content: string) => {
+    try {
+      const newNote = await api.createNote({
+        title,
+        content,
+        category_id: selectedCategoryId || undefined,
+        folder_id: selectedFolderId || undefined,
+        file_type: 'docx'
+      });
+      setNotes((prev) => [newNote, ...prev]);
+      setActiveNoteId(newNote.id);
+      setMainViewMode('note');
+    } catch (err) {
+      console.error('Erro ao criar nota com template:', err);
+    }
+  };
+
   // Save Note
   const handleSaveNote = async (id: string, updates: Partial<Note>) => {
     try {
@@ -614,6 +633,8 @@ export const App: React.FC = () => {
         onDeleteReference={handleDeleteReference}
         onOpenGraph={() => setMainViewMode('graph')}
         isGraphOpen={mainViewMode === 'graph'}
+        onOpenStudies={() => setMainViewMode('studies')}
+        isStudiesOpen={mainViewMode === 'studies'}
       />
 
       <div className="main-wrapper">
@@ -626,6 +647,8 @@ export const App: React.FC = () => {
           onOpenAuth={() => setIsAuthOpen(true)}
           isGraphOpen={mainViewMode === 'graph'}
           onToggleGraph={() => setMainViewMode((prev) => (prev === 'graph' ? 'directory' : 'graph'))}
+          isStudiesOpen={mainViewMode === 'studies'}
+          onToggleStudies={() => setMainViewMode((prev) => (prev === 'studies' ? 'directory' : 'studies'))}
           isSplitViewOpen={isSplitViewOpen}
           onToggleSplitView={() => {
             if (!isSplitViewOpen && !activeReference && references.length > 0) {
@@ -754,6 +777,23 @@ export const App: React.FC = () => {
                         handleSelectReference(ref, false);
                       }
                     }}
+                    onClose={() => setMainViewMode('directory')}
+                  />
+                ) : mainViewMode === 'studies' ? (
+                  /* Study Module: Plans, Exercises, Simulations, and Fichamento (RF-22 to RF-26) */
+                  <StudyModule
+                    allNotes={notes}
+                    references={references}
+                    onSelectNote={(noteId) => {
+                      handleSelectNote(noteId);
+                    }}
+                    onSelectReference={(refId) => {
+                      const ref = references.find((r) => r.id === refId);
+                      if (ref) {
+                        handleSelectReference(ref, false);
+                      }
+                    }}
+                    onCreateNoteWithTemplate={handleCreateNoteWithTemplate}
                     onClose={() => setMainViewMode('directory')}
                   />
                 ) : (

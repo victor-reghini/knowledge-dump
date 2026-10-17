@@ -1235,6 +1235,482 @@ server.get('/api/graph', async (request) => {
   return { nodes, links };
 });
 
+// --- STUDY MODULE & EXERCISES (RF-22 to RF-26) ---
+
+// List Study Plans with topics and progress
+server.get('/api/study-plans', async (request) => {
+  const userId = getUserId(request);
+  let query = 'SELECT * FROM study_plans';
+  const params: any[] = [];
+  if (userId) {
+    query += ' WHERE user_id = ? OR user_id IS NULL';
+    params.push(userId);
+  }
+  query += ' ORDER BY created_at DESC';
+
+  const plans = db.prepare(query).all(...params) as any[];
+
+  for (const p of plans) {
+    const topics = db.prepare(`
+      SELECT * FROM study_topics WHERE plan_id = ? ORDER BY order_index ASC, created_at ASC
+    `).all(p.id) as any[];
+
+    for (const t of topics) {
+      try { t.notes_ids = JSON.parse(t.notes_ids || '[]'); } catch { t.notes_ids = []; }
+      try { t.references_ids = JSON.parse(t.references_ids || '[]'); } catch { t.references_ids = []; }
+      const exCount = db.prepare('SELECT COUNT(*) as count FROM exercises WHERE topic_id = ?').get(t.id) as { count: number };
+      t.exercises_count = exCount?.count || 0;
+    }
+
+    p.topics = topics;
+    p.total_topics = topics.length;
+    p.completed_topics = topics.filter((t: any) => t.status === 'completed').length;
+    p.progress_percent = p.total_topics > 0 ? Math.round((p.completed_topics / p.total_topics) * 100) : 0;
+  }
+
+  return plans;
+});
+
+// Create Study Plan
+server.post('/api/study-plans', async (request, reply) => {
+  const userId = getUserId(request);
+  const body = request.body as { title: string; description?: string; target_date?: string };
+  if (!body.title) return reply.status(400).send({ error: 'Título é obrigatório' });
+
+  const id = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO study_plans (id, user_id, title, description, target_date)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, userId, body.title, body.description || null, body.target_date || null);
+
+  const plan = db.prepare('SELECT * FROM study_plans WHERE id = ?').get(id) as any;
+  plan.topics = [];
+  plan.total_topics = 0;
+  plan.completed_topics = 0;
+  plan.progress_percent = 0;
+  return plan;
+});
+
+// Update Study Plan
+server.put('/api/study-plans/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as { title?: string; description?: string; target_date?: string };
+
+  const existing = db.prepare('SELECT * FROM study_plans WHERE id = ?').get(id);
+  if (!existing) return reply.status(404).send({ error: 'Plano não encontrado' });
+
+  const fields: string[] = [];
+  const params: any[] = [];
+  if (body.title !== undefined) { fields.push('title = ?'); params.push(body.title); }
+  if (body.description !== undefined) { fields.push('description = ?'); params.push(body.description); }
+  if (body.target_date !== undefined) { fields.push('target_date = ?'); params.push(body.target_date); }
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(id);
+
+  db.prepare(`UPDATE study_plans SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  return db.prepare('SELECT * FROM study_plans WHERE id = ?').get(id);
+});
+
+// Delete Study Plan
+server.delete('/api/study-plans/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM study_plans WHERE id = ?').run(id);
+  return { success: true, id };
+});
+
+// Add Topic to Study Plan
+server.post('/api/study-plans/:id/topics', async (request, reply) => {
+  const { id: planId } = request.params as { id: string };
+  const body = request.body as {
+    title: string;
+    order_index?: number;
+    estimated_hours?: number;
+    due_date?: string;
+    notes_ids?: string[];
+    references_ids?: string[];
+  };
+
+  if (!body.title) return reply.status(400).send({ error: 'Título do tópico é obrigatório' });
+
+  const topicId = `topic-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO study_topics (id, plan_id, title, order_index, estimated_hours, due_date, notes_ids, references_ids)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    topicId,
+    planId,
+    body.title,
+    body.order_index || 0,
+    body.estimated_hours || 0,
+    body.due_date || null,
+    JSON.stringify(body.notes_ids || []),
+    JSON.stringify(body.references_ids || [])
+  );
+
+  const topic = db.prepare('SELECT * FROM study_topics WHERE id = ?').get(topicId) as any;
+  topic.notes_ids = body.notes_ids || [];
+  topic.references_ids = body.references_ids || [];
+  topic.exercises_count = 0;
+  return topic;
+});
+
+// Update Topic
+server.put('/api/study-topics/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as {
+    title?: string;
+    order_index?: number;
+    estimated_hours?: number;
+    status?: string;
+    due_date?: string;
+    notes_ids?: string[];
+    references_ids?: string[];
+  };
+
+  const fields: string[] = [];
+  const params: any[] = [];
+  if (body.title !== undefined) { fields.push('title = ?'); params.push(body.title); }
+  if (body.order_index !== undefined) { fields.push('order_index = ?'); params.push(body.order_index); }
+  if (body.estimated_hours !== undefined) { fields.push('estimated_hours = ?'); params.push(body.estimated_hours); }
+  if (body.status !== undefined) { fields.push('status = ?'); params.push(body.status); }
+  if (body.due_date !== undefined) { fields.push('due_date = ?'); params.push(body.due_date); }
+  if (body.notes_ids !== undefined) { fields.push('notes_ids = ?'); params.push(JSON.stringify(body.notes_ids)); }
+  if (body.references_ids !== undefined) { fields.push('references_ids = ?'); params.push(JSON.stringify(body.references_ids)); }
+
+  if (fields.length > 0) {
+    params.push(id);
+    db.prepare(`UPDATE study_topics SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  const topic = db.prepare('SELECT * FROM study_topics WHERE id = ?').get(id) as any;
+  if (topic) {
+    try { topic.notes_ids = JSON.parse(topic.notes_ids || '[]'); } catch { topic.notes_ids = []; }
+    try { topic.references_ids = JSON.parse(topic.references_ids || '[]'); } catch { topic.references_ids = []; }
+  }
+  return topic;
+});
+
+// Delete Topic
+server.delete('/api/study-topics/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM study_topics WHERE id = ?').run(id);
+  return { success: true, id };
+});
+
+// --- EXERCISES (RF-24 & BDD Cenário 3) ---
+
+// List Exercises
+server.get('/api/exercises', async (request) => {
+  const userId = getUserId(request);
+  const { topic_id, note_id } = request.query as { topic_id?: string; note_id?: string };
+
+  let query = `
+    SELECT e.*, t.title as topic_title, n.title as note_title, r.title as reference_title
+    FROM exercises e
+    LEFT JOIN study_topics t ON e.topic_id = t.id
+    LEFT JOIN notes n ON e.note_id = n.id
+    LEFT JOIN references_files r ON e.reference_id = r.id
+    WHERE 1=1
+  `;
+  const params: any[] = [];
+  if (userId) {
+    query += ' AND (e.user_id = ? OR e.user_id IS NULL)';
+    params.push(userId);
+  }
+  if (topic_id) {
+    query += ' AND e.topic_id = ?';
+    params.push(topic_id);
+  }
+  if (note_id) {
+    query += ' AND e.note_id = ?';
+    params.push(note_id);
+  }
+  query += ' ORDER BY e.created_at DESC';
+
+  const rows = db.prepare(query).all(...params) as any[];
+  for (const r of rows) {
+    try { r.options = JSON.parse(r.options || '[]'); } catch { r.options = []; }
+  }
+  return rows;
+});
+
+// Create Exercise
+server.post('/api/exercises', async (request, reply) => {
+  const userId = getUserId(request);
+  const body = request.body as {
+    topic_id?: string;
+    note_id?: string;
+    reference_id?: string;
+    question: string;
+    type?: string;
+    options?: string[];
+    correct_answer: string;
+    explanation: string;
+    difficulty?: string;
+  };
+
+  if (!body.question || !body.correct_answer || !body.explanation) {
+    return reply.status(400).send({ error: 'Pergunta, resposta correta e explicação são obrigatórios' });
+  }
+
+  const id = `ex-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO exercises (id, user_id, topic_id, note_id, reference_id, question, type, options, correct_answer, explanation, difficulty)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    userId,
+    body.topic_id || null,
+    body.note_id || null,
+    body.reference_id || null,
+    body.question,
+    body.type || 'multiple_choice',
+    JSON.stringify(body.options || []),
+    body.correct_answer,
+    body.explanation,
+    body.difficulty || 'medium'
+  );
+
+  const row = db.prepare(`
+    SELECT e.*, t.title as topic_title, n.title as note_title, r.title as reference_title
+    FROM exercises e
+    LEFT JOIN study_topics t ON e.topic_id = t.id
+    LEFT JOIN notes n ON e.note_id = n.id
+    LEFT JOIN references_files r ON e.reference_id = r.id
+    WHERE e.id = ?
+  `).get(id) as any;
+  try { row.options = JSON.parse(row.options || '[]'); } catch { row.options = []; }
+  return row;
+});
+
+// Update Exercise
+server.put('/api/exercises/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as Partial<{
+    topic_id: string;
+    note_id: string;
+    reference_id: string;
+    question: string;
+    type: string;
+    options: string[];
+    correct_answer: string;
+    explanation: string;
+    difficulty: string;
+  }>;
+
+  const fields: string[] = [];
+  const params: any[] = [];
+  if (body.topic_id !== undefined) { fields.push('topic_id = ?'); params.push(body.topic_id); }
+  if (body.note_id !== undefined) { fields.push('note_id = ?'); params.push(body.note_id); }
+  if (body.reference_id !== undefined) { fields.push('reference_id = ?'); params.push(body.reference_id); }
+  if (body.question !== undefined) { fields.push('question = ?'); params.push(body.question); }
+  if (body.type !== undefined) { fields.push('type = ?'); params.push(body.type); }
+  if (body.options !== undefined) { fields.push('options = ?'); params.push(JSON.stringify(body.options)); }
+  if (body.correct_answer !== undefined) { fields.push('correct_answer = ?'); params.push(body.correct_answer); }
+  if (body.explanation !== undefined) { fields.push('explanation = ?'); params.push(body.explanation); }
+  if (body.difficulty !== undefined) { fields.push('difficulty = ?'); params.push(body.difficulty); }
+
+  if (fields.length > 0) {
+    params.push(id);
+    db.prepare(`UPDATE exercises SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  const row = db.prepare(`
+    SELECT e.*, t.title as topic_title, n.title as note_title, r.title as reference_title
+    FROM exercises e
+    LEFT JOIN study_topics t ON e.topic_id = t.id
+    LEFT JOIN notes n ON e.note_id = n.id
+    LEFT JOIN references_files r ON e.reference_id = r.id
+    WHERE e.id = ?
+  `).get(id) as any;
+  if (row) {
+    try { row.options = JSON.parse(row.options || '[]'); } catch { row.options = []; }
+  }
+  return row;
+});
+
+// Delete Exercise
+server.delete('/api/exercises/:id', async (request) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM exercises WHERE id = ?').run(id);
+  return { success: true, id };
+});
+
+// Verify Exercise Answer (BDD Cenário 3: Resolução de Exercício com Vínculo Teórico)
+server.post('/api/exercises/:id/verify', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { answer } = request.body as { answer: string };
+
+  const exercise = db.prepare(`
+    SELECT e.*, n.title as note_title, r.title as reference_title
+    FROM exercises e
+    LEFT JOIN notes n ON e.note_id = n.id
+    LEFT JOIN references_files r ON e.reference_id = r.id
+    WHERE e.id = ?
+  `).get(id) as any;
+
+  if (!exercise) return reply.status(404).send({ error: 'Exercício não encontrado' });
+
+  const isCorrect = String(answer).trim().toLowerCase() === String(exercise.correct_answer).trim().toLowerCase();
+
+  return {
+    is_correct: isCorrect,
+    correct_answer: exercise.correct_answer,
+    explanation: exercise.explanation,
+    note_id: exercise.note_id,
+    note_title: exercise.note_title,
+    reference_id: exercise.reference_id,
+    reference_title: exercise.reference_title
+  };
+});
+
+// --- SIMULATIONS & TESTS (RF-25) ---
+
+// List Simulations
+server.get('/api/simulations', async (request) => {
+  const userId = getUserId(request);
+  let query = `
+    SELECT s.*, p.title as plan_title
+    FROM simulations s
+    LEFT JOIN study_plans p ON s.plan_id = p.id
+  `;
+  const params: any[] = [];
+  if (userId) {
+    query += ' WHERE s.user_id = ? OR s.user_id IS NULL';
+    params.push(userId);
+  }
+  query += ' ORDER BY s.created_at DESC';
+
+  const rows = db.prepare(query).all(...params) as any[];
+  for (const s of rows) {
+    const answers = db.prepare(`
+      SELECT sa.*, e.question, e.explanation, e.note_id, e.reference_id,
+             n.title as note_title, r.title as reference_title
+      FROM simulation_answers sa
+      JOIN exercises e ON sa.exercise_id = e.id
+      LEFT JOIN notes n ON e.note_id = n.id
+      LEFT JOIN references_files r ON e.reference_id = r.id
+      WHERE sa.simulation_id = ?
+    `).all(s.id);
+    s.answers = answers;
+  }
+  return rows;
+});
+
+// Create Simulation
+server.post('/api/simulations', async (request, reply) => {
+  const userId = getUserId(request);
+  const body = request.body as {
+    title: string;
+    plan_id?: string;
+    topic_ids?: string[];
+    duration_minutes?: number;
+    exercise_ids?: string[];
+  };
+
+  if (!body.title) return reply.status(400).send({ error: 'Título do simulado é obrigatório' });
+
+  let exIds = body.exercise_ids || [];
+  if (exIds.length === 0) {
+    // Select exercises automatically based on plan or topics
+    let exQuery = 'SELECT id FROM exercises WHERE 1=1';
+    const exParams: any[] = [];
+    if (body.topic_ids && body.topic_ids.length > 0) {
+      exQuery += ` AND topic_id IN (${body.topic_ids.map(() => '?').join(',')})`;
+      exParams.push(...body.topic_ids);
+    } else if (body.plan_id) {
+      exQuery += ' AND topic_id IN (SELECT id FROM study_topics WHERE plan_id = ?)';
+      exParams.push(body.plan_id);
+    }
+    const foundEx = db.prepare(exQuery).all(...exParams) as Array<{ id: string }>;
+    exIds = foundEx.map(e => e.id);
+  }
+
+  const simId = `sim-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO simulations (id, user_id, plan_id, title, duration_minutes, total_questions)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(simId, userId, body.plan_id || null, body.title, body.duration_minutes || 30, exIds.length);
+
+  for (const exId of exIds) {
+    db.prepare(`
+      INSERT INTO simulation_answers (id, simulation_id, exercise_id)
+      VALUES (?, ?, ?)
+    `).run(`sa-${Date.now()}-${Math.random()}`, simId, exId);
+  }
+
+  const sim = db.prepare('SELECT * FROM simulations WHERE id = ?').get(simId) as any;
+  const questions = db.prepare(`
+    SELECT e.id, e.question, e.type, e.options, e.difficulty, e.topic_id
+    FROM simulation_answers sa
+    JOIN exercises e ON sa.exercise_id = e.id
+    WHERE sa.simulation_id = ?
+  `).all(simId) as any[];
+  for (const q of questions) {
+    try { q.options = JSON.parse(q.options || '[]'); } catch { q.options = []; }
+  }
+  sim.questions = questions;
+  return sim;
+});
+
+// Finish / Submit Simulation
+server.post('/api/simulations/:id/finish', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { answers } = request.body as { answers: Array<{ exercise_id: string; selected_answer: string; time_spent_seconds?: number }> };
+
+  let correctCount = 0;
+  for (const ans of (answers || [])) {
+    const ex = db.prepare('SELECT correct_answer FROM exercises WHERE id = ?').get(ans.exercise_id) as { correct_answer: string } | undefined;
+    const isCorrect = ex ? (String(ans.selected_answer).trim().toLowerCase() === String(ex.correct_answer).trim().toLowerCase() ? 1 : 0) : 0;
+    if (isCorrect) correctCount++;
+
+    db.prepare(`
+      UPDATE simulation_answers
+      SET selected_answer = ?, is_correct = ?, time_spent_seconds = ?
+      WHERE simulation_id = ? AND exercise_id = ?
+    `).run(ans.selected_answer, isCorrect, ans.time_spent_seconds || 0, id, ans.exercise_id);
+  }
+
+  const totalQuestions = answers ? answers.length : 1;
+  const score = Math.round((correctCount / Math.max(1, totalQuestions)) * 100);
+
+  db.prepare(`
+    UPDATE simulations
+    SET score = ?, correct_count = ?, completed_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(score, correctCount, id);
+
+  const updatedSim = db.prepare('SELECT * FROM simulations WHERE id = ?').get(id) as any;
+  const detailedAnswers = db.prepare(`
+    SELECT sa.*, e.question, e.explanation, e.correct_answer, e.note_id, e.reference_id,
+           n.title as note_title, r.title as reference_title, t.title as topic_title
+    FROM simulation_answers sa
+    JOIN exercises e ON sa.exercise_id = e.id
+    LEFT JOIN notes n ON e.note_id = n.id
+    LEFT JOIN references_files r ON e.reference_id = r.id
+    LEFT JOIN study_topics t ON e.topic_id = t.id
+    WHERE sa.simulation_id = ?
+  `).all(id);
+  updatedSim.answers = detailedAnswers;
+
+  // Diagnosis of topics that need review (tópicos com taxa de erro)
+  const topicStats = new Map<string, { title: string; total: number; incorrect: number; note_id?: string; reference_id?: string }>();
+  for (const a of detailedAnswers as any[]) {
+    const topic = a.topic_title || 'Tópico Geral';
+    const current = topicStats.get(topic) || { title: topic, total: 0, incorrect: 0, note_id: a.note_id, reference_id: a.reference_id };
+    current.total++;
+    if (!a.is_correct) current.incorrect++;
+    topicStats.set(topic, current);
+  }
+
+  const reviewRecommendations = Array.from(topicStats.values())
+    .filter(t => t.incorrect > 0)
+    .sort((a, b) => b.incorrect - a.incorrect);
+
+  updatedSim.review_recommendations = reviewRecommendations;
+  return updatedSim;
+});
+
 // FTS5 Global Search
 server.get('/api/search', async (request) => {
   const { q } = request.query as { q?: string };

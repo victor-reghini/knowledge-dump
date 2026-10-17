@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network } from 'lucide-react';
+import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap } from 'lucide-react';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -13,6 +13,8 @@ interface HeaderProps {
   onToggleSplitView?: () => void;
   isGraphOpen?: boolean;
   onToggleGraph?: () => void;
+  isStudiesOpen?: boolean;
+  onToggleStudies?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
   isSplitViewOpen,
   onToggleSplitView,
   isGraphOpen,
-  onToggleGraph
+  onToggleGraph,
+  isStudiesOpen,
+  onToggleStudies
 }) => {
   return (
     <header className="top-header" role="banner">
@@ -42,6 +46,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
+        {onToggleStudies && (
+          <button
+            className={`user-badge-btn ${isStudiesOpen ? 'active' : ''}`}
+            onClick={onToggleStudies}
+            title={isStudiesOpen ? 'Sair do Módulo de Estudos' : 'Abrir Módulo de Estudos e Exercícios (RF-22)'}
+            style={{
+              backgroundColor: isStudiesOpen ? 'var(--primary-yellow-light)' : undefined,
+              borderColor: isStudiesOpen ? 'var(--primary-yellow-border)' : undefined,
+              color: isStudiesOpen ? 'var(--primary-yellow-text)' : undefined
+            }}
+          >
+            <GraduationCap size={15} />
+            <span>{isStudiesOpen ? 'Estudos Ativo' : 'Estudos'}</span>
+          </button>
+        )}
+
         {onToggleGraph && (
           <button
             className={`user-badge-btn ${isGraphOpen ? 'active' : ''}`}

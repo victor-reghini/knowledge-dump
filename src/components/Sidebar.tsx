@@ -17,7 +17,8 @@ import {
   Image as ImageIcon,
   Presentation,
   ChevronDown,
-  Network
+  Network,
+  GraduationCap
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -47,6 +48,8 @@ interface SidebarProps {
   onDeleteReference?: (id: string) => Promise<void>;
   onOpenGraph?: () => void;
   isGraphOpen?: boolean;
+  onOpenStudies?: () => void;
+  isStudiesOpen?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -75,7 +78,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onUploadPdf,
   onDeleteReference,
   onOpenGraph,
-  isGraphOpen
+  isGraphOpen,
+  onOpenStudies,
+  isStudiesOpen
 }) => {
   const safeReferences = Array.isArray(references) ? references : [];
   const safeBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
@@ -166,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* All Notes */}
         <div>
           <button
-            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId && !isGraphOpen ? 'active' : ''}`}
+            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId && !isGraphOpen && !isStudiesOpen ? 'active' : ''}`}
             onClick={onViewAllNotes}
           >
             <span className="nav-item-content">
@@ -190,6 +195,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>Grafo de Conhecimento</span>
               </span>
               <span className="nav-badge">{safeAllNotes.length + safeReferences.length}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Study Module (RF-22 to RF-26) */}
+        {onOpenStudies && (
+          <div>
+            <button
+              className={`nav-item ${isStudiesOpen ? 'active' : ''}`}
+              onClick={onOpenStudies}
+              title="Abrir Módulo de Estudos, Exercícios e Simulados"
+            >
+              <span className="nav-item-content">
+                <GraduationCap className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
+                <span>Estudos & Exercícios</span>
+              </span>
             </button>
           </div>
         )}
