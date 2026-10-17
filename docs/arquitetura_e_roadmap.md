@@ -77,8 +77,8 @@ gantt
     section Fase 3: Estudos & Síntese
     Visualizador de Grafo Interativo (Ativ 3.1)                :done, c1, 2026-10-30, 2026-10-31
     Módulo de Estudos, Exercícios e Simulados (Ativ 3.2)       :done, c2, after c1, 10d
-    Modo de Redação e Exportação Científica (Ativ 3.3)         :active, c3, after c2, 7d
-    Validação do Fluxo de Estudos (Ativ 3.4)                   :c4, after c3, 5d
+    Modo de Redação e Exportação Científica (Ativ 3.3)         :done, c3, after c2, 7d
+    Validação do Fluxo de Estudos (Ativ 3.4)                   :active, c4, after c3, 5d
 
     section Fase 4: Sync PWA Mobile & Google Drive
     Serviço de Sincronização para PWA Mobile (Ativ 4.1)        :d1, after c4, 10d
@@ -291,11 +291,32 @@ gantt
   - Integração da navegação na [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx) e [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx).
   - Suíte de testes automatizados [`tests/atividade-3.2.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.2.test.ts) validando todo o ciclo de planos, exercícios com vínculo conceitual e simulados com diagnóstico.
 
-#### Atividade 3.3: Modo de Redação e Exportação Científica [PENDENTE ⏳]
-- **Status:** **PENDENTE ⏳**
-- **Branch Prevista:** `feature/3.3-redacao-exportacao-cientifica`
+#### Atividade 3.3: Modo de Redação e Exportação Científica [CONCLUÍDA ✅]
+- **Status:** **CONCLUÍDA ✅**
+- **Branch Utilizada:** `feature/3.3-redacao-exportacao-cientifica`
 - **Responsável:** `agent-development`
-- **Descrição:** Criar ambiente focado de composição com gaveta de citações e compilação em Markdown, PDF, LaTeX e DOCX.
+- **Descrição:** Criar ambiente focado de composição com gaveta de citações e compilação em Markdown, PDF, LaTeX e DOCX (RF-30, RF-31).
+- **Entregas Realizadas:**
+  - Modelo de dados relacional em [`server/db.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/db.ts) com tabelas `articles` e `article_citations`.
+  - Motor de compilação acadêmica em [`server/export.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/export.ts) puro em TypeScript/Node.js:
+    - **Markdown (.md)**: Frontmatter YAML padronizado, estruturação de seções e bibliografia formatada (ABNT, IEEE ou APA).
+    - **LaTeX (.tex)**: Preâmbulo com `\documentclass[12pt,a4paper]{article}`, `\maketitle`, ambiente `abstract`, conversão de cabeçalhos para `\section`, `\subsection` e ambiente `thebibliography` com `\bibitem`.
+    - **DOCX (.docx)**: Documento OpenXML estruturado com cabeçalho, abstract, parágrafos e lista de referências.
+    - **PDF (.pdf)**: Geração nativa em PDF 1.4 com paginação, cabeçalho dinâmico (`Acervo Científico`), resumo em bloco, tipografia proporcional e bibliografia compilada.
+  - Endpoints no backend Fastify/SQLite em [`server/index.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/server/index.ts):
+    - `GET /api/articles` e `POST /api/articles`: gestão de artigos com contagem de palavras e estimativa de leitura.
+    - `GET /api/articles/:id`, `PUT /api/articles/:id` e `DELETE /api/articles/:id`: detalhamento com dados do autor e vínculos de fontes.
+    - `POST /api/articles/:id/citations` e `DELETE /api/articles/:id/citations/:citationId`: gestão da gaveta de referências citadas com geração de chaves bibliográficas.
+    - `POST /api/export/compile`: compilação dinâmica com retorno de código ou base64 para pré-visualização.
+    - `GET /api/articles/:id/export`: download direto nos formatos `.md`, `.tex`, `.docx` e `.pdf`.
+  - Componente de frontend [`ScientificEditor.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/ScientificEditor.tsx):
+    - Ambiente focado de escrita (Modo Zen sem distrações) com métricas em tempo real (palavras, tempo de leitura e fontes).
+    - Cartão recolhível de metadados acadêmicos (Resumo/Abstract, Palavras-chave e Veículo Alvo).
+    - Barra de ferramentas de formatação rápida (H1-H3, negrito, itálico, citações, listas, fórmulas LaTeX e Wikilinks).
+    - Gaveta de Fontes e Citações (RF-30): busca em tempo real no acervo e inserção em 1-clique de citações inline (ABNT ou BibTeX) e Wikilinks.
+    - Modal de Compilação & Exportação (RF-31): seleção de formatos (.pdf, .tex, .docx, .md), estilo de citação (ABNT, IEEE, APA), pré-visualização de código e download imediato.
+  - Navegação integrada em [`Sidebar.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Sidebar.tsx), [`Header.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/components/Header.tsx) e [`App.tsx`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/src/App.tsx).
+  - Suíte de testes automatizados [`tests/atividade-3.3.test.ts`](file:///Users/victor/Documents/Projects/ComplexProjects/knowledge-dump/tests/atividade-3.3.test.ts) validando todo o ciclo CRUD, gaveta de citações e compilações multi-formato.
 
 #### Atividade 3.4: Validação do Fluxo de Estudos [PENDENTE ⏳]
 - **Status:** **PENDENTE ⏳**

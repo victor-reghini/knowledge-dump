@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap } from 'lucide-react';
+import { Search, Moon, Sun, ShieldCheck, User as UserIcon, Columns2, Network, GraduationCap, PenTool } from 'lucide-react';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -15,6 +15,8 @@ interface HeaderProps {
   onToggleGraph?: () => void;
   isStudiesOpen?: boolean;
   onToggleStudies?: () => void;
+  isCompositionOpen?: boolean;
+  onToggleComposition?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,7 +31,9 @@ export const Header: React.FC<HeaderProps> = ({
   isGraphOpen,
   onToggleGraph,
   isStudiesOpen,
-  onToggleStudies
+  onToggleStudies,
+  isCompositionOpen,
+  onToggleComposition
 }) => {
   return (
     <header className="top-header" role="banner">
@@ -46,6 +50,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
+        {onToggleComposition && (
+          <button
+            className={`user-badge-btn ${isCompositionOpen ? 'active' : ''}`}
+            onClick={onToggleComposition}
+            title={isCompositionOpen ? 'Sair do Modo de Redação' : 'Abrir Modo de Redação Científica (RF-30)'}
+            style={{
+              backgroundColor: isCompositionOpen ? 'var(--primary-yellow-light)' : undefined,
+              borderColor: isCompositionOpen ? 'var(--primary-yellow-border)' : undefined,
+              color: isCompositionOpen ? 'var(--primary-yellow-text)' : undefined
+            }}
+          >
+            <PenTool size={15} />
+            <span>{isCompositionOpen ? 'Redação Ativa' : 'Redação'}</span>
+          </button>
+        )}
+
         {onToggleStudies && (
           <button
             className={`user-badge-btn ${isStudiesOpen ? 'active' : ''}`}

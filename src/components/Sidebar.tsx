@@ -18,7 +18,8 @@ import {
   Presentation,
   ChevronDown,
   Network,
-  GraduationCap
+  GraduationCap,
+  PenTool
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -50,6 +51,8 @@ interface SidebarProps {
   isGraphOpen?: boolean;
   onOpenStudies?: () => void;
   isStudiesOpen?: boolean;
+  onOpenComposition?: () => void;
+  isCompositionOpen?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -80,7 +83,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenGraph,
   isGraphOpen,
   onOpenStudies,
-  isStudiesOpen
+  isStudiesOpen,
+  onOpenComposition,
+  isCompositionOpen
 }) => {
   const safeReferences = Array.isArray(references) ? references : [];
   const safeBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
@@ -171,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* All Notes */}
         <div>
           <button
-            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId && !isGraphOpen && !isStudiesOpen ? 'active' : ''}`}
+            className={`nav-item ${!selectedCategoryId && !selectedFolderId && !activeNoteId && !isGraphOpen && !isStudiesOpen && !isCompositionOpen ? 'active' : ''}`}
             onClick={onViewAllNotes}
           >
             <span className="nav-item-content">
@@ -210,6 +215,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="nav-item-content">
                 <GraduationCap className="nav-item-icon" style={{ color: 'var(--accent-green)' }} />
                 <span>Estudos & Exercícios</span>
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* Scientific Composition & Articles (RF-30 & RF-31) */}
+        {onOpenComposition && (
+          <div>
+            <button
+              className={`nav-item ${isCompositionOpen ? 'active' : ''}`}
+              onClick={onOpenComposition}
+              title="Abrir Ambiente de Redação Científica e Exportação"
+            >
+              <span className="nav-item-content">
+                <PenTool className="nav-item-icon" style={{ color: 'var(--kd-accent-yellow, #eab308)' }} />
+                <span>Redação Científica</span>
               </span>
             </button>
           </div>

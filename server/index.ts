@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR } from './db.js';
 import { parseDocxFile, saveDocxFile, buildDocxFromContent } from './docx.js';
 import { parsePptxFile } from './pptx.js';
+import { compileToMarkdown, compileToLatex, compileToDocx, compileToPdf, CitationItem, ArticleExportData, CompileOptions } from './export.js';
 
 initDatabase();
 
@@ -1745,6 +1746,371 @@ server.get('/api/search', async (request) => {
     WHERE n.title LIKE ? OR n.content LIKE ?
     LIMIT 20
   `).all(`%${cleanQuery}%`, `%${cleanQuery}%`);
+});
+
+// ==========================================
+// SCIENTIFIC ARTICLES & COMPOSITION (RF-30 & RF-31)
+// ==========================================
+
+// List Articles
+server.get('/api/articles', async (request) => {
+  const userId = getUserId(request);
+  const { status, search } = request.query as { status?: string; search?: string };
+
+  let query = `
+    SELECT a.*, u.name as author_name,
+      (SELECT COUNT(*) FROM article_citations ac WHERE ac.article_id = a.id) as citations_count
+    FROM articles a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE 1=1
+  `;
+  const params: any[] = [];
+  if (userId) {
+    query += ' AND (a.user_id = ? OR a.user_id IS NULL)';
+    params.push(userId);
+  }
+  if (status) {
+    query += ' AND a.status = ?';
+    params.push(status);
+  }
+  if (search) {
+    query += ' AND (a.title LIKE ? OR a.content LIKE ? OR a.abstract LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  query += ' ORDER BY a.updated_at DESC';
+
+  const rows = db.prepare(query).all(...params) as any[];
+  for (const r of rows) {
+    try { r.keywords = JSON.parse(r.keywords || '[]'); } catch { r.keywords = []; }
+    const words = (r.content || '').trim().split(/\s+/).filter(Boolean).length;
+    r.word_count = words;
+    r.estimated_reading_minutes = Math.max(1, Math.ceil(words / 200));
+  }
+  return rows;
+});
+
+// Create Article
+server.post('/api/articles', async (request, reply) => {
+  const userId = getUserId(request);
+  const body = request.body as {
+    title: string;
+    subtitle?: string;
+    abstract?: string;
+    content?: string;
+    keywords?: string[];
+    status?: string;
+    target_venue?: string;
+  };
+
+  if (!body.title?.trim()) {
+    return reply.status(400).send({ error: 'Título do artigo é obrigatório' });
+  }
+
+  const id = `art-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO articles (id, user_id, title, subtitle, abstract, content, keywords, status, target_venue)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    userId,
+    body.title.trim(),
+    body.subtitle?.trim() || null,
+    body.abstract?.trim() || null,
+    body.content || '',
+    JSON.stringify(body.keywords || []),
+    body.status || 'draft',
+    body.target_venue?.trim() || null
+  );
+
+  const article = db.prepare(`
+    SELECT a.*, u.name as author_name
+    FROM articles a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.id = ?
+  `).get(id) as any;
+
+  try { article.keywords = JSON.parse(article.keywords || '[]'); } catch { article.keywords = []; }
+  article.citations = [];
+  article.citations_count = 0;
+  const words = (article.content || '').trim().split(/\s+/).filter(Boolean).length;
+  article.word_count = words;
+  article.estimated_reading_minutes = Math.max(1, Math.ceil(words / 200));
+  return article;
+});
+
+// Get Article Details with Citations
+server.get('/api/articles/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+
+  const article = db.prepare(`
+    SELECT a.*, u.name as author_name
+    FROM articles a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.id = ?
+  `).get(id) as any;
+
+  if (!article) return reply.status(404).send({ error: 'Artigo não encontrado' });
+
+  try { article.keywords = JSON.parse(article.keywords || '[]'); } catch { article.keywords = []; }
+
+  const citations = db.prepare(`
+    SELECT ac.*,
+      rf.title as reference_title, rf.authors as reference_authors, rf.year as reference_year, rf.doi as reference_doi, rf.file_type as reference_file_type,
+      n.title as note_title
+    FROM article_citations ac
+    LEFT JOIN references_files rf ON ac.reference_id = rf.id
+    LEFT JOIN notes n ON ac.note_id = n.id
+    WHERE ac.article_id = ?
+    ORDER BY ac.created_at ASC
+  `).all(id) as any[];
+
+  article.citations = citations;
+  article.citations_count = citations.length;
+  const words = (article.content || '').trim().split(/\s+/).filter(Boolean).length;
+  article.word_count = words;
+  article.estimated_reading_minutes = Math.max(1, Math.ceil(words / 200));
+  return article;
+});
+
+// Update Article
+server.put('/api/articles/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = request.body as Partial<{
+    title: string;
+    subtitle: string;
+    abstract: string;
+    content: string;
+    keywords: string[];
+    status: string;
+    target_venue: string;
+  }>;
+
+  const existing = db.prepare('SELECT id FROM articles WHERE id = ?').get(id);
+  if (!existing) return reply.status(404).send({ error: 'Artigo não encontrado' });
+
+  const fields: string[] = [];
+  const params: any[] = [];
+  if (body.title !== undefined) { fields.push('title = ?'); params.push(body.title); }
+  if (body.subtitle !== undefined) { fields.push('subtitle = ?'); params.push(body.subtitle); }
+  if (body.abstract !== undefined) { fields.push('abstract = ?'); params.push(body.abstract); }
+  if (body.content !== undefined) { fields.push('content = ?'); params.push(body.content); }
+  if (body.keywords !== undefined) { fields.push('keywords = ?'); params.push(JSON.stringify(body.keywords)); }
+  if (body.status !== undefined) { fields.push('status = ?'); params.push(body.status); }
+  if (body.target_venue !== undefined) { fields.push('target_venue = ?'); params.push(body.target_venue); }
+
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(id);
+
+  db.prepare(`UPDATE articles SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+
+  const article = db.prepare(`
+    SELECT a.*, u.name as author_name
+    FROM articles a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.id = ?
+  `).get(id) as any;
+  try { article.keywords = JSON.parse(article.keywords || '[]'); } catch { article.keywords = []; }
+  return article;
+});
+
+// Delete Article
+server.delete('/api/articles/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  db.prepare('DELETE FROM articles WHERE id = ?').run(id);
+  return { success: true, id };
+});
+
+// Add Citation / Reference to Article
+server.post('/api/articles/:id/citations', async (request, reply) => {
+  const { id: articleId } = request.params as { id: string };
+  const body = request.body as {
+    reference_id?: string;
+    note_id?: string;
+    citation_key?: string;
+    formatted_text?: string;
+    page_number?: number;
+  };
+
+  const article = db.prepare('SELECT id FROM articles WHERE id = ?').get(articleId);
+  if (!article) return reply.status(404).send({ error: 'Artigo não encontrado' });
+
+  let key = body.citation_key?.trim();
+  let title = 'Referência';
+  let authors = '';
+  let year = new Date().getFullYear();
+
+  if (body.reference_id) {
+    const ref = db.prepare('SELECT * FROM references_files WHERE id = ?').get(body.reference_id) as any;
+    if (ref) {
+      title = ref.title;
+      authors = ref.authors || '';
+      year = ref.year || year;
+      if (!key) {
+        const primaryAuthor = (authors.split(',')[0] || authors.split(' ')[0] || 'Ref').trim().replace(/[^a-zA-Z]/g, '');
+        key = `${primaryAuthor}${year}`;
+      }
+    }
+  } else if (body.note_id) {
+    const n = db.prepare('SELECT * FROM notes WHERE id = ?').get(body.note_id) as any;
+    if (n) {
+      title = n.title;
+      if (!key) key = n.title.replace(/\s+/g, '_').slice(0, 16);
+    }
+  }
+
+  if (!key) key = `ref_${Date.now()}`;
+
+  const citationId = `cit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  db.prepare(`
+    INSERT INTO article_citations (id, article_id, reference_id, note_id, citation_key, formatted_text, page_number)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    citationId,
+    articleId,
+    body.reference_id || null,
+    body.note_id || null,
+    key,
+    body.formatted_text || null,
+    body.page_number || null
+  );
+
+  return db.prepare(`
+    SELECT ac.*, rf.title as reference_title, rf.authors as reference_authors, rf.year as reference_year, n.title as note_title
+    FROM article_citations ac
+    LEFT JOIN references_files rf ON ac.reference_id = rf.id
+    LEFT JOIN notes n ON ac.note_id = n.id
+    WHERE ac.id = ?
+  `).get(citationId);
+});
+
+// Delete Citation from Article
+server.delete('/api/articles/:id/citations/:citationId', async (request) => {
+  const { citationId } = request.params as { id: string; citationId: string };
+  db.prepare('DELETE FROM article_citations WHERE id = ?').run(citationId);
+  return { success: true, id: citationId };
+});
+
+// Compile Generic Text / Note / Article into target format (RF-31)
+server.post('/api/export/compile', async (request, reply) => {
+  const body = request.body as {
+    data: ArticleExportData;
+    format: 'md' | 'tex' | 'docx' | 'pdf';
+    options?: CompileOptions;
+  };
+
+  if (!body.data || !body.data.title || body.data.content === undefined) {
+    return reply.status(400).send({ error: 'Dados do artigo e conteúdo são obrigatórios' });
+  }
+
+  const format = (body.format || 'md').toLowerCase();
+  const opts = body.options || {};
+
+  if (format === 'md' || format === 'markdown') {
+    const compiled = compileToMarkdown(body.data, opts);
+    return { format: 'md', compiled, filename: `${body.data.title.replace(/\s+/g, '_')}.md` };
+  }
+
+  if (format === 'tex' || format === 'latex') {
+    const compiled = compileToLatex(body.data, opts);
+    return { format: 'tex', compiled, filename: `${body.data.title.replace(/\s+/g, '_')}.tex` };
+  }
+
+  if (format === 'docx') {
+    const buf = compileToDocx(body.data, opts);
+    return { format: 'docx', base64: buf.toString('base64'), filename: `${body.data.title.replace(/\s+/g, '_')}.docx` };
+  }
+
+  if (format === 'pdf') {
+    const buf = compileToPdf(body.data, opts);
+    return { format: 'pdf', base64: buf.toString('base64'), filename: `${body.data.title.replace(/\s+/g, '_')}.pdf` };
+  }
+
+  return reply.status(400).send({ error: `Formato não suportado: ${format}` });
+});
+
+// Export Compiled Article directly to download (RF-31)
+server.get('/api/articles/:id/export', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const query = request.query as { format?: string; style?: 'ABNT' | 'APA' | 'IEEE' };
+
+  const article = db.prepare(`
+    SELECT a.*, u.name as author_name
+    FROM articles a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.id = ?
+  `).get(id) as any;
+
+  if (!article) return reply.status(404).send({ error: 'Artigo não encontrado' });
+  try { article.keywords = JSON.parse(article.keywords || '[]'); } catch { article.keywords = []; }
+
+  const rawCitations = db.prepare(`
+    SELECT ac.*, rf.title as reference_title, rf.authors as reference_authors, rf.year as reference_year, rf.doi as reference_doi,
+      n.title as note_title
+    FROM article_citations ac
+    LEFT JOIN references_files rf ON ac.reference_id = rf.id
+    LEFT JOIN notes n ON ac.note_id = n.id
+    WHERE ac.article_id = ?
+    ORDER BY ac.created_at ASC
+  `).all(id) as any[];
+
+  const citations: CitationItem[] = rawCitations.map(c => ({
+    key: c.citation_key,
+    title: c.reference_title || c.note_title || 'Fonte Sem Título',
+    authors: c.reference_authors || undefined,
+    year: c.reference_year || undefined,
+    doi: c.reference_doi || undefined,
+    page_number: c.page_number || undefined,
+    formatted_text: c.formatted_text || undefined
+  }));
+
+  const exportData: ArticleExportData = {
+    title: article.title,
+    subtitle: article.subtitle,
+    authors: article.author_name || 'Knowledge Dump',
+    abstract: article.abstract,
+    keywords: article.keywords,
+    content: article.content,
+    status: article.status,
+    target_venue: article.target_venue,
+    citations
+  };
+
+  const format = (query.format || 'md').toLowerCase();
+  const safeFilename = encodeURIComponent(
+    article.title.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_') || 'artigo'
+  );
+
+  const style = query.style || 'ABNT';
+
+  if (format === 'md' || format === 'markdown') {
+    const md = compileToMarkdown(exportData, { citationStyle: style });
+    reply.header('Content-Type', 'text/markdown; charset=utf-8');
+    reply.header('Content-Disposition', `attachment; filename="${safeFilename}.md"`);
+    return md;
+  }
+
+  if (format === 'tex' || format === 'latex') {
+    const tex = compileToLatex(exportData, { citationStyle: style });
+    reply.header('Content-Type', 'application/x-latex; charset=utf-8');
+    reply.header('Content-Disposition', `attachment; filename="${safeFilename}.tex"`);
+    return tex;
+  }
+
+  if (format === 'docx' || format === 'doc') {
+    const docx = compileToDocx(exportData, { citationStyle: style });
+    reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    reply.header('Content-Disposition', `attachment; filename="${safeFilename}.docx"`);
+    return reply.send(docx);
+  }
+
+  if (format === 'pdf') {
+    const pdf = compileToPdf(exportData, { citationStyle: style });
+    reply.header('Content-Type', 'application/pdf');
+    reply.header('Content-Disposition', `attachment; filename="${safeFilename}.pdf"`);
+    return reply.send(pdf);
+  }
+
+  return reply.status(400).send({ error: `Formato de exportação não suportado: ${format}` });
 });
 
 // Fallback for SPA routing in production

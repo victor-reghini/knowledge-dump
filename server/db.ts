@@ -192,6 +192,31 @@ export function initDatabase() {
       time_spent_seconds INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS articles (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      abstract TEXT,
+      content TEXT NOT NULL,
+      keywords TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'draft',
+      target_venue TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS article_citations (
+      id TEXT PRIMARY KEY,
+      article_id TEXT REFERENCES articles(id) ON DELETE CASCADE,
+      reference_id TEXT REFERENCES references_files(id) ON DELETE SET NULL,
+      note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
+      citation_key TEXT NOT NULL,
+      formatted_text TEXT,
+      page_number INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // FTS5 Initialization (com fallback resiliente caso o SQLite do ambiente não possua FTS5)
@@ -242,6 +267,34 @@ export function initDatabase() {
 
   try { db.exec("ALTER TABLE citations ADD COLUMN page_number INTEGER;"); } catch {}
   try { db.exec("ALTER TABLE citations ADD COLUMN anchor_data TEXT;"); } catch {}
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS articles (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        subtitle TEXT,
+        abstract TEXT,
+        content TEXT NOT NULL,
+        keywords TEXT DEFAULT '[]',
+        status TEXT DEFAULT 'draft',
+        target_venue TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS article_citations (
+        id TEXT PRIMARY KEY,
+        article_id TEXT REFERENCES articles(id) ON DELETE CASCADE,
+        reference_id TEXT REFERENCES references_files(id) ON DELETE SET NULL,
+        note_id TEXT REFERENCES notes(id) ON DELETE SET NULL,
+        citation_key TEXT NOT NULL,
+        formatted_text TEXT,
+        page_number INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch {}
 
   // Assegura que os arquivos físicos de fixtures e referências estejam presentes no volume
   ensureReferenceFilesOnDisk(REFS_DIR);

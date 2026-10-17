@@ -251,3 +251,53 @@ export interface Simulation {
   created_at?: string;
   answers?: SimulationAnswer[];
 }
+
+export interface ArticleCitation {
+  id: string;
+  article_id: string;
+  reference_id?: string | null;
+  reference_title?: string | null;
+  reference_authors?: string | null;
+  reference_year?: number | null;
+  reference_doi?: string | null;
+  reference_file_type?: string | null;
+  note_id?: string | null;
+  note_title?: string | null;
+  citation_key: string;
+  formatted_text?: string | null;
+  page_number?: number | null;
+  created_at?: string;
+}
+
+export interface Article {
+  id: string;
+  user_id?: string;
+  author_name?: string;
+  title: string;
+  subtitle?: string | null;
+  abstract?: string | null;
+  content: string;
+  keywords: string[];
+  status: 'draft' | 'review' | 'published';
+  target_venue?: string | null;
+  citations_count?: number;
+  word_count?: number;
+  estimated_reading_minutes?: number;
+  citations?: ArticleCitation[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CompileOptions {
+  citationStyle?: 'ABNT' | 'APA' | 'IEEE';
+  includeAbstract?: boolean;
+  includeBibliography?: boolean;
+  includeFrontmatter?: boolean;
+}
+
+export interface CompileResult {
+  format: 'md' | 'tex' | 'docx' | 'pdf';
+  compiled?: string;
+  base64?: string;
+  filename: string;
+}

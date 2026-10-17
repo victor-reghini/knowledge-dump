@@ -12,6 +12,7 @@ import { PublicNoteView } from './components/PublicNoteView';
 import { ReferenceViewer } from './components/ReferenceViewer';
 import { GraphView } from './components/GraphView';
 import { StudyModule } from './components/StudyModule';
+import { ScientificEditor } from './components/ScientificEditor';
 import { ArrowLeft, Columns, X, FileText } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -29,8 +30,8 @@ export const App: React.FC = () => {
   const [shareModalNote, setShareModalNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // View and Split-View states (Individual reference viewing, Dual Split View, Graph, and Studies)
-  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph' | 'studies'>('directory');
+  // View and Split-View states (Individual reference viewing, Dual Split View, Graph, Studies, and Scientific Composition)
+  const [mainViewMode, setMainViewMode] = useState<'directory' | 'note' | 'reference' | 'graph' | 'studies' | 'composition'>('directory');
   const [isSplitViewOpen, setIsSplitViewOpen] = useState(false);
   const [splitPaneMode, setSplitPaneMode] = useState<'reference' | 'note'>('reference');
   const [splitSecondaryNoteId, setSplitSecondaryNoteId] = useState<string | null>(null);
@@ -635,6 +636,8 @@ export const App: React.FC = () => {
         isGraphOpen={mainViewMode === 'graph'}
         onOpenStudies={() => setMainViewMode('studies')}
         isStudiesOpen={mainViewMode === 'studies'}
+        onOpenComposition={() => setMainViewMode('composition')}
+        isCompositionOpen={mainViewMode === 'composition'}
       />
 
       <div className="main-wrapper">
@@ -649,6 +652,8 @@ export const App: React.FC = () => {
           onToggleGraph={() => setMainViewMode((prev) => (prev === 'graph' ? 'directory' : 'graph'))}
           isStudiesOpen={mainViewMode === 'studies'}
           onToggleStudies={() => setMainViewMode((prev) => (prev === 'studies' ? 'directory' : 'studies'))}
+          isCompositionOpen={mainViewMode === 'composition'}
+          onToggleComposition={() => setMainViewMode((prev) => (prev === 'composition' ? 'directory' : 'composition'))}
           isSplitViewOpen={isSplitViewOpen}
           onToggleSplitView={() => {
             if (!isSplitViewOpen && !activeReference && references.length > 0) {
@@ -795,6 +800,21 @@ export const App: React.FC = () => {
                     }}
                     onCreateNoteWithTemplate={handleCreateNoteWithTemplate}
                     onClose={() => setMainViewMode('directory')}
+                  />
+                ) : mainViewMode === 'composition' ? (
+                  /* Scientific Composition & Export (RF-30 & RF-31) */
+                  <ScientificEditor
+                    references={references}
+                    notes={notes}
+                    onNavigateToNote={(noteId) => {
+                      handleSelectNote(noteId);
+                    }}
+                    onNavigateToReference={(refId) => {
+                      const ref = references.find((r) => r.id === refId);
+                      if (ref) {
+                        handleSelectReference(ref, false);
+                      }
+                    }}
                   />
                 ) : (
                   /* Directory View (List or Grid view with Notes & References) */

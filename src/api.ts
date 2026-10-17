@@ -13,7 +13,11 @@ import {
   StudyTopic,
   Exercise,
   ExerciseVerifyResult,
-  Simulation
+  Simulation,
+  Article,
+  ArticleCitation,
+  CompileOptions,
+  CompileResult
 } from './types';
 
 const BASE_URL = '/api';
@@ -564,6 +568,99 @@ export const api = {
       body: JSON.stringify({ answers })
     });
     if (!res.ok) throw new Error('Falha ao concluir simulado');
+    return res.json();
+  },
+
+  // --- SCIENTIFIC ARTICLES & EXPORT (RF-30 & RF-31) ---
+  async getArticles(status?: string, search?: string): Promise<Article[]> {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (search) params.set('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${BASE_URL}/articles${qs}`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async getArticle(id: string): Promise<Article> {
+    const res = await fetch(`${BASE_URL}/articles/${id}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Falha ao carregar artigo');
+    return res.json();
+  },
+
+  async createArticle(data: {
+    title: string;
+    subtitle?: string;
+    abstract?: string;
+    content?: string;
+    keywords?: string[];
+    status?: string;
+    target_venue?: string;
+  }): Promise<Article> {
+    const res = await fetch(`${BASE_URL}/articles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao criar artigo');
+    return res.json();
+  },
+
+  async updateArticle(id: string, data: Partial<Article>): Promise<Article> {
+    const res = await fetch(`${BASE_URL}/articles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao atualizar artigo');
+    return res.json();
+  },
+
+  async deleteArticle(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/articles/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Falha ao excluir artigo');
+    return res.json();
+  },
+
+  async addArticleCitation(articleId: string, data: {
+    reference_id?: string;
+    note_id?: string;
+    citation_key?: string;
+    formatted_text?: string;
+    page_number?: number;
+  }): Promise<ArticleCitation> {
+    const res = await fetch(`${BASE_URL}/articles/${articleId}/citations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Falha ao adicionar citação');
+    return res.json();
+  },
+
+  async deleteArticleCitation(articleId: string, citationId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${BASE_URL}/articles/${articleId}/citations/${citationId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Falha ao remover citação');
+    return res.json();
+  },
+
+  getArticleExportUrl(id: string, format: 'md' | 'tex' | 'docx' | 'pdf', style: 'ABNT' | 'APA' | 'IEEE' = 'ABNT'): string {
+    return `${BASE_URL}/articles/${id}/export?format=${format}&style=${style}`;
+  },
+
+  async compileExport(data: any, format: 'md' | 'tex' | 'docx' | 'pdf', options?: CompileOptions): Promise<CompileResult> {
+    const res = await fetch(`${BASE_URL}/export/compile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ data, format, options })
+    });
+    if (!res.ok) throw new Error('Falha ao compilar exportação');
     return res.json();
   }
 };
