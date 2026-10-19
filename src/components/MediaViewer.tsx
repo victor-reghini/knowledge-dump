@@ -2,14 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ReferenceFile } from '../types';
 import { api } from '../api';
 import {
-  Play,
-  Pause,
-  FastForward,
   RotateCcw,
   RotateCw,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Quote,
   X,
   BookmarkCheck,
@@ -85,16 +81,6 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     }
   };
 
-  const togglePlay = () => {
-    if (!mediaRef.current) return;
-    if (isPlaying) {
-      mediaRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      mediaRef.current.play();
-      setIsPlaying(true);
-    }
-  };
 
   const changePlaybackRate = (rate: number) => {
     setPlaybackRate(rate);
@@ -156,7 +142,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
           {/* Controls for Media Playback */}
           {(isVideo || isAudio) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.78rem', color: isPlaying ? 'var(--accent-blue, #3b82f6)' : 'var(--text-muted)' }}>
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
 

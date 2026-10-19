@@ -704,12 +704,26 @@ a:hover {
 
 .editor-pane {
   flex: 1;
-  overflow-y: auto;
-  padding: 40px 60px;
-  display: block;
-  max-width: 900px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  position: relative;
+}
+
+.editor-body-wrapper {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  position: relative;
+  overflow: hidden;
 }
 
 .note-meta-bar {
@@ -2043,11 +2057,13 @@ a:hover {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  flex: 1;
+  min-height: 0;
   background-color: var(--bg-primary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border-radius: 0;
+  border: none;
   overflow: hidden;
-  margin-bottom: 24px;
+  margin: 0;
 }
 
 .word-ribbon {
@@ -3177,3 +3193,926 @@ a:hover {
     color: #000000 !important;
   }
 }
+
+/* ==========================================================================
+   Apple Notes 3-Column & Google Docs Editor Design System
+   ========================================================================== */
+
+/* 1. Apple Notes Sidebar Bottom Bar */
+.sidebar-bottom-bar {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.apple-new-folder-bottom-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: #e5a93c;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.apple-new-folder-bottom-btn:hover {
+  background-color: var(--bg-hover);
+  color: #d97706;
+}
+
+.sidebar-bottom-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.sidebar-bottom-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.sidebar-bottom-btn-confirm {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background-color: #e5a93c;
+  color: #ffffff;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar-bottom-btn-cancel {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* 2. Apple Notes 3-Column Shell & Middle Column */
+.app-3column-shell {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 49px);
+  overflow: hidden;
+}
+
+.notes-list-column {
+  width: 320px;
+  min-width: 270px;
+  max-width: 360px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  user-select: none;
+  flex-shrink: 0;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notes-column-collapsed {
+  width: 34px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+
+.notes-column-toggle-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.notes-column-toggle-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notes-column-search-container {
+  padding: 12px 14px 6px 14px;
+}
+
+.apple-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.apple-search-bar:focus-within {
+  border-color: rgba(229, 169, 60, 0.5);
+  background-color: var(--bg-secondary);
+}
+
+.apple-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.apple-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.apple-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.notes-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 6px 14px;
+}
+
+.notes-column-header-info {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.notes-column-title {
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--text-primary);
+}
+
+.notes-column-count {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.notes-column-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notes-column-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.notes-column-action-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notes-column-action-btn.primary {
+  color: #e5a93c;
+}
+
+.notes-cards-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 10px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notes-empty-state {
+  text-align: center;
+  padding: 32px 14px;
+  color: var(--text-muted);
+}
+
+.notes-empty-state .empty-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.notes-empty-state .empty-subtitle {
+  font-size: 0.78rem;
+  margin-bottom: 14px;
+}
+
+.apple-new-note-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: #e5a93c;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.apple-note-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.apple-note-card:hover {
+  background-color: var(--bg-hover);
+}
+
+.apple-note-card.selected {
+  background-color: #e9ecef;
+}
+
+[data-theme='dark'] .apple-note-card.selected {
+  background-color: #2b2b2b;
+}
+
+.apple-note-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.apple-note-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.apple-note-card-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.apple-note-card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.apple-note-card-date {
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.apple-note-card-snippet {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apple-note-card-delete {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border: none;
+  background: transparent;
+  color: var(--accent-red);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.apple-note-card:hover .apple-note-card-delete {
+  opacity: 1;
+}
+
+.editor-workspace-column {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+}
+
+/* 3. Google Docs Document Top Header & Menu Bar */
+.docs-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.docs-doc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.docs-doc-icon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.docs-doc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.docs-doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docs-doc-title-input {
+  font-size: 1.12rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: transparent;
+  color: var(--text-primary);
+  outline: none;
+  min-width: 140px;
+  max-width: 480px;
+  transition: border-color 0.15s ease;
+}
+
+.docs-doc-title-input:hover {
+  border-color: var(--border-hover);
+}
+
+.docs-doc-title-input:focus {
+  border-color: var(--accent-blue);
+  background-color: var(--bg-primary);
+}
+
+.docs-doc-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.docs-doc-chip-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.docs-doc-chip-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.docs-doc-cloud-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.docs-menu-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.docs-menu-item {
+  font-size: 0.8rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.docs-menu-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.apple-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.apple-quick-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.apple-quick-action-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.apple-quick-action-btn.delete-yellow {
+  color: #e5a93c;
+}
+
+.apple-quick-action-btn.delete-yellow:hover {
+  color: #d97706;
+}
+
+/* 4. Google Docs Ribbon Toolbar */
+.docs-ribbon-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 14px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.docs-tool-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.docs-tool-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.docs-tool-btn.is-active {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.docs-tool-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border-color);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.docs-tool-select {
+  font-size: 0.8rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.docs-tool-select:hover {
+  background-color: var(--bg-hover);
+}
+
+.docs-font-size-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 2px;
+  background-color: var(--bg-secondary);
+}
+
+.docs-font-size-btn {
+  border: none;
+  background: transparent;
+  width: 20px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.docs-font-size-btn:hover {
+  color: var(--text-primary);
+}
+
+.docs-font-size-val {
+  font-size: 0.8rem;
+  min-width: 24px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* 5. Google Docs Ruler */
+.docs-ruler-bar {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  user-select: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.docs-ruler-scale {
+  display: flex;
+  width: 816px;
+  margin: 0 auto;
+  height: 100%;
+  position: relative;
+}
+
+.docs-ruler-number {
+  position: absolute;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  top: 2px;
+  transform: translateX(-50%);
+}
+
+.docs-ruler-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--text-muted);
+}
+
+.docs-ruler-slider-left {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #2563eb;
+}
+
+.docs-ruler-slider-right {
+  position: absolute;
+  top: 0;
+  right: 20px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #2563eb;
+}
+
+/* 6. Google Docs Workbench & Outline Drawer */
+.docs-workbench-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: #f8f9fa;
+  position: relative;
+}
+
+[data-theme='dark'] .docs-workbench-container {
+  background-color: #141414;
+}
+
+.docs-outline-drawer {
+  width: 220px;
+  min-width: 200px;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  user-select: none;
+  flex-shrink: 0;
+  transition: width 0.2s ease, padding 0.2s ease;
+}
+
+.docs-outline-drawer.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border-right: none !important;
+  overflow: hidden !important;
+  visibility: hidden;
+}
+
+.docs-guias-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.docs-guia-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background-color: #e8f0fe;
+  color: #1967d2;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+[data-theme='dark'] .docs-guia-tab {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.docs-outline-subtitle {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.docs-outline-item {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 4px 6px;
+  border-radius: 4px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.docs-outline-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.docs-desk-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 24px 20px 48px 20px;
+}
+
+.docs-page-canvas {
+  width: 100%;
+  max-width: 816px;
+  min-height: 1056px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(60,64,67,.15), 0 1px 2px rgba(60,64,67,.3);
+  border-radius: 2px;
+  padding: 56px 64px;
+  color: #202124;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .docs-page-canvas {
+  background-color: #1e1e1e;
+  color: #f4f4f5;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Modo Sem Páginas (Pageless) */
+.docs-page-canvas.is-pageless {
+  min-height: auto;
+  box-shadow: none;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  max-width: 880px;
+  padding: 32px 48px;
+}
+
+/* 7. Google Docs & Word Page Break Division (Fiel à imagem de referência) */
+.docs-page-break {
+  margin: 36px -64px 36px -64px;
+  position: relative;
+  user-select: none;
+  cursor: default;
+  display: block;
+}
+
+.docs-page-break-gap {
+  height: 24px;
+  background-color: #f1f3f5;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    inset 0 3px 5px -1px rgba(0, 0, 0, 0.08),
+    inset 0 -3px 5px -1px rgba(0, 0, 0, 0.08);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px;
+}
+
+[data-theme='dark'] .docs-page-break-gap {
+  background-color: #121212;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    inset 0 3px 6px -1px rgba(0, 0, 0, 0.6),
+    inset 0 -3px 6px -1px rgba(0, 0, 0, 0.6);
+}
+
+.docs-page-break-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.docs-page-canvas.is-pageless .docs-page-break {
+  display: none;
+}
+
+/* Print rule: Real paper page break */
+@media print {
+  .docs-page-break {
+    margin: 0 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    display: block !important;
+    height: 0 !important;
+    border: none !important;
+  }
+  .docs-page-break-gap {
+    display: none !important;
+  }
+}
+
+/* 8. Google Docs Bottom Footer & Discreet Status Bar */
+.docs-doc-footer {
+  height: 28px;
+  min-height: 28px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  user-select: none;
+  font-size: 0.75rem;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.docs-footer-ref-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.docs-footer-ref-btn:hover,
+.docs-footer-ref-btn.is-active {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* 9. Slide-over Side Drawer for References & Citations */
+.docs-references-side-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 90vw;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+  z-index: 60;
+  animation: slideInRight 0.2s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.docs-references-drawer-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+.docs-references-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+
+

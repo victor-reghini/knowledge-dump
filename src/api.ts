@@ -726,16 +726,30 @@ export const api = {
     return res.json();
   },
 
-  async uploadBackupToGoogleDrive(accessToken?: string): Promise<BackupDriveUploadResult> {
+  async uploadBackupToGoogleDrive(accessToken?: string, force?: boolean): Promise<BackupDriveUploadResult> {
     const res = await fetch(`${BASE_URL}/backup/google-drive/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ access_token: accessToken })
+      body: JSON.stringify({ access_token: accessToken, force })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Falha ao enviar backup para o Google Drive');
     }
     return res.json();
+  },
+
+  async syncWithGoogleDrive(accessToken?: string): Promise<BackupDriveUploadResult> {
+    const res = await fetch(`${BASE_URL}/backup/google-drive/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ access_token: accessToken })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Falha na sincronização com o Google Drive');
+    }
+    return res.json();
   }
 };
+

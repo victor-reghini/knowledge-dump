@@ -6,26 +6,20 @@ import { TiptapEditor } from './TiptapEditor';
 import { WikilinkPreviewPopover } from './WikilinkPreviewPopover';
 import { slugify } from '../utils/slugify';
 import {
-  Eye,
-  Edit3,
   Bookmark as BookmarkIcon,
-  Tag as TagIcon,
   Link as LinkIcon,
   Trash2,
   Save,
   Check,
   Share2,
-  Globe,
   Sigma,
   Anchor as AnchorIcon,
-  Layers,
-  Plus,
   X,
   Columns2,
   Quote,
   FileCode,
-  FileDown,
-  Printer
+  FileText,
+  Star
 } from 'lucide-react';
 
 interface NoteEditorProps {
@@ -92,6 +86,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [anchorName, setAnchorName] = useState('');
 
   const [hoveredLink, setHoveredLink] = useState<HoveredWikilink | null>(null);
+  const [isPaginatedMode, setIsPaginatedMode] = useState<boolean>(true);
+  const [showReferencesDrawer, setShowReferencesDrawer] = useState<boolean>(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
@@ -143,6 +139,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     setBookmarkTitle('');
     setBookmarkComment('');
     setShowBookmarkPrompt(false);
+    setShowReferencesDrawer(true);
   };
 
   // Insertion handlers
@@ -523,6 +520,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             </a>
           </div>
         );
+      } else if (trimmed === '---' || trimmed.includes('data-type="page-break"') || trimmed.includes('docs-page-break')) {
+        elements.push(
+          <div key={`pagebreak-${idx}`} className="docs-page-break" data-type="page-break">
+            <div className="docs-page-break-gap">
+              <span className="docs-page-break-label">Página</span>
+            </div>
+          </div>
+        );
       } else if (trimmed.startsWith('> ')) {
         elements.push(
           <blockquote
@@ -560,262 +565,228 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   };
 
   return (
-    <main className="editor-pane" role="main">
-      {/* Meta Bar */}
-      <div className="note-meta-bar">
-        <select
-          value={categoryId || ''}
-          onChange={(e) => {
-            setCategoryId(e.target.value || null);
-            setIsSaved(false);
-          }}
-          style={{
-            padding: '4px 10px',
-            borderRadius: 6,
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            fontSize: '0.8rem'
-          }}
-        >
-          <option value="">Sem Categoria</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+    <main
+      className="editor-pane"
+      role="main"
+      style={{
+        padding: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        width: '100%',
+        maxWidth: '100%',
+        height: '100%',
+        minHeight: 0,
+        position: 'relative'
+      }}
+    >
+      {/* 1. Google Docs Document Header & Apple Notes Quick Actions */}
+      <div className="docs-doc-header">
+        <div className="docs-doc-header-left">
+          <FileText size={32} className="docs-doc-icon" />
+          <div className="docs-doc-info">
+            <div className="docs-doc-title-row">
+              <input
+                type="text"
+                className="docs-doc-title-input"
+                value={title}
+                onChange={handleTitleChange}
+                placeholder="Documento Sem Título"
+              />
+              <div className="docs-doc-meta-chips">
+                <button
+                  type="button"
+                  className="docs-doc-chip-btn"
+                  onClick={async () => {
+                    const newFav = !note.is_favorite;
+                    await onSave(note.id, { is_favorite: newFav });
+                  }}
+                  title={note.is_favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos (Estrela)'}
+                >
+                  <Star
+                    size={16}
+                    style={{ color: note.is_favorite ? '#eab308' : 'var(--text-muted)' }}
+                    fill={note.is_favorite ? '#eab308' : 'none'}
+                  />
+                </button>
 
-        <select
-          value={folderId || ''}
-          onChange={(e) => {
-            setFolderId(e.target.value || null);
-            setIsSaved(false);
-          }}
-          style={{
-            padding: '4px 10px',
-            borderRadius: 6,
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            fontSize: '0.8rem'
-          }}
-        >
-          <option value="">Raiz (Sem Pasta)</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
+                {/* Move folder picker */}
+                <select
+                  value={folderId || ''}
+                  onChange={(e) => {
+                    setFolderId(e.target.value || null);
+                    setIsSaved(false);
+                  }}
+                  className="docs-tool-select"
+                  title="Mover para pasta"
+                  style={{ fontSize: '0.75rem', padding: '1px 6px' }}
+                >
+                  <option value="">📁 Raiz</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      📁 {f.name}
+                    </option>
+                  ))}
+                </select>
 
-        {note.tags && note.tags.length > 0 && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            {note.tags.map((t) => (
-              <span key={t} className="category-tag">
-                <TagIcon size={12} />
-                #{t}
-              </span>
-            ))}
+                <div className="docs-doc-cloud-status" title="Status de sincronização">
+                  <Check size={13} style={{ color: 'var(--accent-green)' }} />
+                  <span>{isSaved ? 'Salvo no Drive' : 'Salvando...'}</span>
+                </div>
+
+                {/* Ver Referências Toggle Button (Header) */}
+                <button
+                  type="button"
+                  className={`docs-doc-chip-btn ${showReferencesDrawer ? 'is-active' : ''}`}
+                  onClick={() => setShowReferencesDrawer((prev) => !prev)}
+                  title="Exibir ou ocultar citações e referências bibliográficas desta nota"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    backgroundColor: showReferencesDrawer ? 'rgba(37, 99, 235, 0.12)' : undefined,
+                    color: showReferencesDrawer ? '#2563eb' : undefined,
+                    borderColor: showReferencesDrawer ? '#2563eb' : undefined
+                  }}
+                >
+                  <Quote size={12} />
+                  <span>
+                    Ver Referências
+                    {((note.citations?.length || 0) + (note.bookmarks?.length || 0)) > 0
+                      ? ` (${(note.citations?.length || 0) + (note.bookmarks?.length || 0)})`
+                      : ''}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Menu Bar: Arquivo, Editar, Ver, Inserir, Formatar, Ferramentas, Ajuda */}
+            <div className="docs-menu-bar">
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank')}
+                title="Arquivo: Exportar Word, PDF ou Salvar"
+              >
+                Arquivo
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => setViewMode(viewMode === 'tiptap' ? 'markdown' : 'tiptap')}
+                title="Editar / Alternar Visual"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => setIsPaginatedMode((prev) => !prev)}
+                title={`Ver: Alternar entre modo Com Páginas (A4) e Sem Páginas (Contínuo). Atualmente: ${isPaginatedMode ? 'Com Páginas' : 'Sem Páginas'}`}
+              >
+                Ver: {isPaginatedMode ? 'Com Páginas' : 'Sem Páginas'}
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => setShowWikilinkPrompt(true)}
+                title="Inserir Wikilink, Imagem, KaTeX"
+              >
+                Inserir
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => setShowMathPrompt(true)}
+                title="Formatar / Equações"
+              >
+                Formatar
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => setShowBookmarkPrompt(true)}
+                title="Marcadores e Ferramentas"
+              >
+                Ferramentas
+              </button>
+              <button
+                type="button"
+                className="docs-menu-item"
+                onClick={() => window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank')}
+                title="Ajuda e Documentação"
+              >
+                Ajuda
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="toolbar-btn"
-            onClick={triggerSave}
-            disabled={isSaved}
-            style={{ color: isSaved ? 'var(--text-muted)' : 'var(--accent-primary)' }}
-          >
-            {isSaved ? <Check size={14} /> : <Save size={14} />}
-            <span>{isSaved ? 'Salvo' : 'Salvar'}</span>
-          </button>
+        {/* Apple Notes Top Right Action Bar: Yellow Trash, Aa, Checklist, Table, Share */}
+        <div className="apple-quick-actions">
           <button
             type="button"
-            className="toolbar-btn"
+            className="apple-quick-action-btn delete-yellow"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onDelete(note.id);
             }}
-            style={{ color: 'var(--wikilink-orphan)' }}
             title="Excluir Nota"
           >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* Note Title */}
-      <input
-        type="text"
-        className="note-title-input"
-        value={title}
-        onChange={handleTitleChange}
-        placeholder="Título da Anotação..."
-      />
-
-      {/* Toolbar */}
-      <div className="note-toolbar">
-        <button
-          type="button"
-          className={`toolbar-btn ${viewMode === 'preview' ? 'active' : ''}`}
-          onClick={() => setViewMode('preview')}
-          title="Modo Leitura & Fórmulas"
-          aria-label="Modo Leitura & Fórmulas"
-        >
-          <Eye size={16} />
-        </button>
-
-        <button
-          type="button"
-          className={`toolbar-btn ${viewMode === 'tiptap' ? 'active' : ''}`}
-          onClick={() => setViewMode('tiptap')}
-          title="Editor Visual Formatado (WYSIWYG Tiptap)"
-          aria-label="Editor Visual Tiptap"
-        >
-          <Layers size={16} />
-        </button>
-
-        <button
-          type="button"
-          className={`toolbar-btn ${viewMode === 'markdown' ? 'active' : ''}`}
-          onClick={() => setViewMode('markdown')}
-          title="Editor Markdown Bruto"
-          aria-label="Editor Markdown Bruto"
-        >
-          <Edit3 size={16} />
-        </button>
-
-        <div className="toolbar-divider" />
-
-        {/* Action buttons */}
-        <button
-          type="button"
-          className={`toolbar-btn ${showWikilinkPrompt ? 'active' : ''}`}
-          onClick={() => {
-            setShowWikilinkPrompt(!showWikilinkPrompt);
-            setShowMathPrompt(false);
-            setShowAnchorPrompt(false);
-            setShowBookmarkPrompt(false);
-          }}
-          title="Inserir Wikilink [[Nome da Nota]]"
-          aria-label="Inserir Wikilink"
-        >
-          <LinkIcon size={16} />
-        </button>
-
-        <button
-          type="button"
-          className={`toolbar-btn ${showMathPrompt ? 'active' : ''}`}
-          onClick={() => {
-            setShowMathPrompt(!showMathPrompt);
-            setShowWikilinkPrompt(false);
-            setShowAnchorPrompt(false);
-            setShowBookmarkPrompt(false);
-          }}
-          title="Inserir Fórmula Matemática KaTeX ($$E=mc^2$$)"
-          aria-label="Inserir Fórmula KaTeX"
-        >
-          <Sigma size={16} />
-        </button>
-
-        <button
-          type="button"
-          className={`toolbar-btn ${showAnchorPrompt ? 'active' : ''}`}
-          onClick={() => {
-            setShowAnchorPrompt(!showAnchorPrompt);
-            setShowWikilinkPrompt(false);
-            setShowMathPrompt(false);
-            setShowBookmarkPrompt(false);
-          }}
-          title="Inserir Âncora Contextual {#secao}"
-          aria-label="Inserir Âncora Contextual"
-        >
-          <AnchorIcon size={16} />
-        </button>
-
-        <div className="toolbar-divider" />
-
-        <button
-          type="button"
-          className={`toolbar-btn ${showBookmarkPrompt ? 'active' : ''}`}
-          onClick={() => {
-            setShowBookmarkPrompt(!showBookmarkPrompt);
-            setShowWikilinkPrompt(false);
-            setShowMathPrompt(false);
-            setShowAnchorPrompt(false);
-          }}
-          title="Adicionar Marcador / Marca-Página nesta nota"
-          aria-label="Adicionar Marcador"
-        >
-          <BookmarkIcon size={16} style={{ color: '#eab308' }} />
-        </button>
-
-        <div className="toolbar-divider" />
-
-        {onToggleSplitView && (
-          <button
-            type="button"
-            className={`toolbar-btn ${isSplitViewOpen ? 'active' : ''}`}
-            onClick={onToggleSplitView}
-            title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela com Referências (Split-View)'}
-            aria-label="Dividir Tela (Split-View)"
-          >
-            <Columns2 size={16} />
-          </button>
-        )}
-
-        <button
-          type="button"
-          className="toolbar-btn"
-          onClick={() => onOpenShare(note)}
-          title="Configurar compartilhamento público"
-          aria-label="Compartilhar Nota"
-        >
-          <Share2 size={16} />
-        </button>
-
-        {note.is_public ? (
-          <span className="public-badge" style={{ marginLeft: 2 }} title="Esta nota está pública">
-            <Globe size={11} />
-            <span>Pública</span>
-          </span>
-        ) : null}
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              padding: '2px 8px',
-              borderRadius: 4,
-              backgroundColor: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            {note.file_type === 'md' ? 'Markdown' : 'DOCX (Word)'}
-          </span>
-
-          <button
-            type="button"
-            className="toolbar-btn"
-            onClick={() => window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank')}
-            title="Exportar como Microsoft Word (.docx)"
-            aria-label="Exportar DOCX"
-          >
-            <FileDown size={15} />
-            <span style={{ fontSize: '0.78rem' }}>DOCX</span>
+            <Trash2 size={17} />
           </button>
 
           <button
             type="button"
-            className="toolbar-btn"
-            onClick={() => window.print()}
-            title="Exportar ou Imprimir como PDF"
-            aria-label="Exportar PDF"
+            className={`apple-quick-action-btn ${viewMode !== 'tiptap' ? 'active' : ''}`}
+            onClick={() => setViewMode((prev) => (prev === 'tiptap' ? 'markdown' : 'tiptap'))}
+            title="Formatação Aa (Visual / Markdown)"
           >
-            <Printer size={15} />
-            <span style={{ fontSize: '0.78rem' }}>PDF</span>
+            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e5a93c' }}>Aa</span>
+          </button>
+
+          <button
+            type="button"
+            className="apple-quick-action-btn"
+            onClick={() => setShowBookmarkPrompt(true)}
+            title="Adicionar Marcador / Marca-Página"
+          >
+            <BookmarkIcon size={16} style={{ color: '#eab308' }} />
+          </button>
+
+          {onToggleSplitView && (
+            <button
+              type="button"
+              className={`apple-quick-action-btn ${isSplitViewOpen ? 'active' : ''}`}
+              onClick={onToggleSplitView}
+              title={isSplitViewOpen ? 'Fechar Split-View' : 'Dividir Tela com PDF / Outra Nota'}
+            >
+              <Columns2 size={16} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="apple-quick-action-btn"
+            onClick={() => onOpenShare(note)}
+            title="Compartilhar Nota"
+          >
+            <Share2 size={16} />
+          </button>
+
+          <button
+            type="button"
+            className="apple-quick-action-btn"
+            onClick={triggerSave}
+            disabled={isSaved}
+            title={isSaved ? 'Alterações salvas' : 'Salvar Nota'}
+            style={{ color: isSaved ? 'var(--text-muted)' : 'var(--accent-primary)' }}
+          >
+            {isSaved ? <Check size={16} /> : <Save size={16} />}
           </button>
         </div>
       </div>
@@ -1120,175 +1091,263 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         </form>
       )}
 
-      {/* Bookmarks on this note */}
-      {note.bookmarks && note.bookmarks.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          {note.bookmarks.map((bm) => (
-            <div key={bm.id} className="bookmark-item">
-              <BookmarkIcon size={16} className="bookmark-gold" style={{ marginTop: 2, flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{bm.title}</div>
-                {bm.comment && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                    {bm.comment}
+
+      {/* Editor Body & References Drawer */}
+      <div className="editor-body-wrapper" style={{ flex: 1, minHeight: 0, width: '100%', height: '100%', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+        {viewMode === 'tiptap' ? (
+          <TiptapEditor
+            content={content}
+            onChange={handleContentChange}
+            onInsertWikilink={() => setShowWikilinkPrompt(true)}
+            onInsertMath={() => setShowMathPrompt(true)}
+            onInsertAnchor={() => setShowAnchorPrompt(true)}
+            noteTitle={title}
+            noteId={note.id}
+            isPaginatedMode={isPaginatedMode}
+            onTogglePaginatedMode={() => setIsPaginatedMode((prev) => !prev)}
+            onExportDocx={() => {
+              window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank');
+            }}
+            onExportMarkdown={() => {
+              window.open(api.getNoteExportUrl(note.id, 'md'), '_blank');
+            }}
+            onExportPdf={() => {
+              window.print();
+            }}
+          />
+        ) : viewMode === 'markdown' ? (
+          <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '24px 32px' }}>
+            <textarea
+              ref={textareaRef}
+              className="note-textarea"
+              style={{ width: '100%', minHeight: '100%', border: 'none', outline: 'none', background: 'transparent', resize: 'none', fontFamily: 'monospace', fontSize: '0.95rem' }}
+              value={content}
+              onChange={(e) => {
+                handleContentChange(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.max(380, e.target.scrollHeight)}px`;
+              }}
+              placeholder="Escreva sua anotação... Use [[Nome da Nota]] para conectar hiperlinks estilo Wikipédia ou [[Nota#Âncora]]. Use $formula$ para KaTeX."
+            />
+          </div>
+        ) : (
+          <main className="docs-desk-area" style={{ flex: 1, height: '100%', overflowY: 'auto' }}>
+            <div
+              className={`docs-page-canvas printable-document note-preview-container ${!isPaginatedMode ? 'is-pageless' : ''}`}
+              style={{ margin: '24px auto', maxWidth: 816, minHeight: 900 }}
+            >
+              {renderHypertextPreview(content)}
+            </div>
+          </main>
+        )}
+
+        {/* Floating Hover Popover for Wikilinks (RF-11) */}
+        {hoveredLink && (
+          <WikilinkPreviewPopover
+            title={hoveredLink.title}
+            anchor={hoveredLink.anchor}
+            targetNote={hoveredLink.targetNote}
+            categories={categories}
+            position={hoveredLink.position}
+            onClose={() => setHoveredLink(null)}
+            onNavigate={() => {
+              onNavigateToNoteTitle(hoveredLink.title, hoveredLink.anchor);
+              setHoveredLink(null);
+            }}
+          />
+        )}
+
+        {/* References & Citations Slide-over Drawer (Oculto por padrão, aberto via "Ver Referências") */}
+        {showReferencesDrawer && (
+          <aside className="docs-references-side-drawer" aria-label="Citações e referências extraídas de papers">
+            <div className="docs-references-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Quote size={15} style={{ color: 'var(--primary-yellow-border)' }} />
+                <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700 }}>
+                  Referências & Marcadores ({((note.citations?.length || 0) + (note.bookmarks?.length || 0))})
+                </h4>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {onToggleSplitView && (
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    onClick={onToggleSplitView}
+                    style={{ fontSize: '0.74rem', padding: '3px 8px', height: 26 }}
+                    title="Abrir ou fechar split-view do PDF"
+                  >
+                    <Columns2 size={12} />
+                    <span>{isSplitViewOpen ? 'Fechar Split' : 'Ver PDF'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setShowReferencesDrawer(false)}
+                  title="Fechar painel de referências"
+                  style={{ padding: 4 }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            <div className="docs-references-drawer-body">
+              {/* Citations List */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10, letterSpacing: '0.04em' }}>
+                  Citações de Papers ({note.citations?.length || 0})
+                </div>
+
+                {note.citations && note.citations.length > 0 ? (
+                  <div className="citations-list">
+                    {note.citations.map((cite) => (
+                      <div key={cite.id} className="citation-card">
+                        <blockquote className="citation-quote">
+                          <Quote size={13} className="citation-quote-icon" />
+                          <span>"{cite.quote_text}"</span>
+                        </blockquote>
+                        <div className="citation-meta">
+                          <span className="citation-source">
+                            <FileCode size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+                            <strong>{cite.source_title || 'Documento de Referência'}</strong>
+                            {cite.authors ? ` — ${cite.authors}` : ''}
+                            {cite.year ? ` (${cite.year})` : ''}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                            {cite.page_number && (
+                              <button
+                                type="button"
+                                className="citation-deeplink-btn"
+                                onClick={() =>
+                                  onOpenPdfDeepLink &&
+                                  cite.reference_id &&
+                                  onOpenPdfDeepLink(cite.reference_id, cite.page_number!, cite.quote_text)
+                                }
+                                title={`Ir diretamente para a página ${cite.page_number} no PDF integrado`}
+                              >
+                                <AnchorIcon size={11} />
+                                <span>Pág. {cite.page_number} (Deep-Link)</span>
+                              </button>
+                            )}
+                            {onDeleteCitation && (
+                              <button
+                                type="button"
+                                className="ref-delete-btn"
+                                onClick={() => onDeleteCitation(cite.id)}
+                                title="Remover citação"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, padding: 12, backgroundColor: 'var(--bg-tertiary)', borderRadius: 6 }}>
+                    Nenhum trecho de PDF citado nesta anotação. Abra um paper no Visualizador PDF ao lado, selecione qualquer trecho de texto e clique em <em>"Citar na Anotação"</em> para gerar um deep-link instantâneo.
+                  </p>
+                )}
+              </div>
+
+              {/* Bookmarks on this note (Oculto na página principal, acessível aqui no painel) */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10, letterSpacing: '0.04em' }}>
+                  Marcadores Contextuais ({note.bookmarks?.length || 0})
+                </div>
+                {note.bookmarks && note.bookmarks.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {note.bookmarks.map((bm) => (
+                      <div
+                        key={bm.id}
+                        className="bookmark-item"
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          backgroundColor: 'var(--bg-tertiary)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 8
+                        }}
+                      >
+                        <BookmarkIcon size={15} className="bookmark-gold" style={{ marginTop: 2, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{bm.title}</div>
+                          {bm.comment && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                              {bm.comment}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, padding: 12, backgroundColor: 'var(--bg-tertiary)', borderRadius: 6 }}>
+                    Nenhum marcador adicionado. Use o botão de marcador no topo para salvar pontos-chave.
+                  </p>
+                )}
+              </div>
+
+              {/* Backlinks */}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10, letterSpacing: '0.04em' }}>
+                  Backlinks ({note.backlinks?.length || 0}) — Notas que Citam Este Documento
+                </div>
+                {note.backlinks && note.backlinks.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {note.backlinks.map((bl) => (
+                      <div
+                        key={bl.id}
+                        className="backlink-card"
+                        style={{ padding: '8px 12px' }}
+                        onClick={() => onNavigateToNoteTitle(bl.title)}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--wikilink-color)' }}>
+                          [[{bl.title}]]
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, padding: 12, backgroundColor: 'var(--bg-tertiary)', borderRadius: 6 }}>
+                    Nenhuma outra nota cita este documento ainda. Adicione <code style={{ color: 'var(--wikilink-color)' }}>[[{note.title}]]</code> em outro texto para criar a relação bidirecional.
+                  </p>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </aside>
+        )}
+      </div>
 
-      {/* Editor Body */}
-      {viewMode === 'tiptap' ? (
-        <TiptapEditor
-          content={content}
-          onChange={handleContentChange}
-          onInsertWikilink={() => setShowWikilinkPrompt(true)}
-          onInsertMath={() => setShowMathPrompt(true)}
-          onInsertAnchor={() => setShowAnchorPrompt(true)}
-          noteTitle={title}
-          noteId={note.id}
-          onExportDocx={() => {
-            window.open(api.getNoteExportUrl(note.id, 'docx'), '_blank');
-          }}
-          onExportMarkdown={() => {
-            window.open(api.getNoteExportUrl(note.id, 'md'), '_blank');
-          }}
-          onExportPdf={() => {
-            window.print();
-          }}
-        />
-      ) : viewMode === 'markdown' ? (
-        <textarea
-          ref={textareaRef}
-          className="note-textarea"
-          value={content}
-          onChange={(e) => {
-            handleContentChange(e.target.value);
-            e.target.style.height = 'auto';
-            e.target.style.height = `${Math.max(380, e.target.scrollHeight)}px`;
-          }}
-          placeholder="Escreva sua anotação... Use [[Nome da Nota]] para conectar hiperlinks estilo Wikipédia ou [[Nota#Âncora]]. Use $formula$ para KaTeX."
-        />
-      ) : (
-        <div className="note-preview-container">{renderHypertextPreview(content)}</div>
-      )}
-
-      {/* Floating Hover Popover for Wikilinks (RF-11) */}
-      {hoveredLink && (
-        <WikilinkPreviewPopover
-          title={hoveredLink.title}
-          anchor={hoveredLink.anchor}
-          targetNote={hoveredLink.targetNote}
-          categories={categories}
-          position={hoveredLink.position}
-          onClose={() => setHoveredLink(null)}
-          onNavigate={() => {
-            onNavigateToNoteTitle(hoveredLink.title, hoveredLink.anchor);
-            setHoveredLink(null);
-          }}
-        />
-      )}
-
-      {/* Citations & Sources (RF-19, Cenário 2 BDD) */}
-      <section className="citations-section" aria-label="Citações e referências extraídas de papers">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h4 className="backlinks-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Quote size={15} className="text-accent" />
-            <span>Citações & Referências Bibliográficas ({note.citations?.length || 0})</span>
-          </h4>
-          {onToggleSplitView && (
-            <button
-              type="button"
-              className="toolbar-btn"
-              onClick={onToggleSplitView}
-              style={{ fontSize: '0.8rem', padding: '4px 8px' }}
-            >
-              <Columns2 size={13} />
-              <span>{isSplitViewOpen ? 'Fechar Split-View' : 'Abrir Visualizador PDF'}</span>
-            </button>
-          )}
+      {/* 3. Rodapé sutil com contadores e botão "Ver Referências" */}
+      <footer className="docs-doc-footer">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <span>{title || 'Documento sem título'}</span>
+          <span>•</span>
+          <span>{content.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length} palavras</span>
+          <span>•</span>
+          <span>{content.replace(/<[^>]*>/g, '').length} caracteres</span>
         </div>
 
-        {note.citations && note.citations.length > 0 ? (
-          <div className="citations-list">
-            {note.citations.map((cite) => (
-              <div key={cite.id} className="citation-card">
-                <blockquote className="citation-quote">
-                  <Quote size={14} className="citation-quote-icon" />
-                  <span>"{cite.quote_text}"</span>
-                </blockquote>
-                <div className="citation-meta">
-                  <span className="citation-source">
-                    <FileCode size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
-                    <strong>{cite.source_title || 'Documento de Referência'}</strong>
-                    {cite.authors ? ` — ${cite.authors}` : ''}
-                    {cite.year ? ` (${cite.year})` : ''}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {cite.page_number && (
-                      <button
-                        type="button"
-                        className="citation-deeplink-btn"
-                        onClick={() =>
-                          onOpenPdfDeepLink &&
-                          cite.reference_id &&
-                          onOpenPdfDeepLink(cite.reference_id, cite.page_number!, cite.quote_text)
-                        }
-                        title={`Ir diretamente para a página ${cite.page_number} no PDF integrado`}
-                      >
-                        <AnchorIcon size={12} />
-                        <span>Página {cite.page_number} (Deep-Link)</span>
-                      </button>
-                    )}
-                    {onDeleteCitation && (
-                      <button
-                        type="button"
-                        className="ref-delete-btn"
-                        onClick={() => onDeleteCitation(cite.id)}
-                        title="Remover citação"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Nenhum trecho de PDF citado nesta anotação. Abra um paper no Visualizador PDF ao lado, selecione qualquer trecho de texto e clique em <em>"Citar na Anotação"</em> para gerar um deep-link instantâneo.
-          </p>
-        )}
-      </section>
-
-      {/* Backlinks (RF-10) */}
-      <section className="backlinks-section" aria-label="Notas que citam esta nota">
-        <h4 className="backlinks-title">
-          Backlinks ({note.backlinks?.length || 0}) — Notas que citam este documento
-        </h4>
-        {note.backlinks && note.backlinks.length > 0 ? (
-          <div>
-            {note.backlinks.map((bl) => (
-              <div
-                key={bl.id}
-                className="backlink-card"
-                onClick={() => onNavigateToNoteTitle(bl.title)}
-              >
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--wikilink-color)' }}>
-                  [[{bl.title}]]
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Nenhuma outra nota cita este documento ainda. Adicione <code style={{ color: 'var(--wikilink-color)' }}>[[{note.title}]]</code> em outro texto para criar a relação bidirecional.
-          </p>
-        )}
-      </section>
+        <button
+          type="button"
+          className={`docs-footer-ref-btn ${showReferencesDrawer ? 'is-active' : ''}`}
+          onClick={() => setShowReferencesDrawer(!showReferencesDrawer)}
+          title="Exibir ou ocultar citações, marcadores e referências desta nota"
+        >
+          <Quote size={12} />
+          <span>
+            Ver Referências
+            {((note.citations?.length || 0) + (note.bookmarks?.length || 0)) > 0
+              ? ` (${(note.citations?.length || 0) + (note.bookmarks?.length || 0)})`
+              : ''}
+          </span>
+        </button>
+      </footer>
     </main>
   );
 };

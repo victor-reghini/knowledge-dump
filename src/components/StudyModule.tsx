@@ -19,18 +19,12 @@ import {
   Plus,
   Trash2,
   Play,
-  RotateCcw,
   Check,
   X,
   AlertCircle,
-  ExternalLink,
   HelpCircle,
   Award,
-  ChevronRight,
-  ListTodo,
-  BookMarked,
-  Layers,
-  ArrowRight
+  BookMarked
 } from 'lucide-react';
 
 interface StudyModuleProps {
@@ -75,7 +69,6 @@ export const StudyModule: React.FC<StudyModuleProps> = ({
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(true);
   const [isCreatingExercise, setIsCreatingExercise] = useState(false);
-  const [exerciseFilterTopicId, setExerciseFilterTopicId] = useState<string>('all');
 
   // New Exercise Form
   const [newExQuestion, setNewExQuestion] = useState('');
@@ -249,7 +242,7 @@ export const StudyModule: React.FC<StudyModuleProps> = ({
 
   // Handler: Toggle Topic Status
   const handleToggleTopicStatus = async (topic: StudyTopic) => {
-    const nextStatus =
+    const nextStatus: StudyTopic['status'] =
       topic.status === 'completed' ? 'pending' : topic.status === 'pending' ? 'in_progress' : 'completed';
 
     try {
@@ -257,7 +250,7 @@ export const StudyModule: React.FC<StudyModuleProps> = ({
       setPlans((prev) =>
         prev.map((p) => {
           if (p.id === topic.plan_id) {
-            const topics = (p.topics || []).map((t) => (t.id === topic.id ? { ...t, status: nextStatus } : t));
+            const topics: StudyTopic[] = (p.topics || []).map((t) => (t.id === topic.id ? { ...t, status: nextStatus } : t));
             const completed = topics.filter((t) => t.status === 'completed').length;
             return {
               ...p,
@@ -1016,6 +1009,55 @@ export const StudyModule: React.FC<StudyModuleProps> = ({
                   ))}
                 </div>
 
+                {/* Difficulty and Topic */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 600, marginBottom: 4 }}>
+                      Dificuldade:
+                    </label>
+                    <select
+                      value={newExDifficulty}
+                      onChange={(e) => setNewExDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                      style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        fontSize: '0.8rem',
+                        borderRadius: 6,
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      <option value="easy">Fácil</option>
+                      <option value="medium">Médio</option>
+                      <option value="hard">Difícil</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 600, marginBottom: 4 }}>
+                      Tópico Associado:
+                    </label>
+                    <select
+                      value={newExTopicId}
+                      onChange={(e) => setNewExTopicId(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        fontSize: '0.8rem',
+                        borderRadius: 6,
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      <option value="">Nenhum (Geral)</option>
+                      {plans.flatMap((p) => p.topics || []).map((t) => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {/* Theoretical links: Note and Reference */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
@@ -1592,6 +1634,13 @@ export const StudyModule: React.FC<StudyModuleProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Loading Indicator for Simulations */}
+            {!activeSim && loadingSimulations && (
+              <div style={{ textAlign: 'center', padding: '16px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Carregando histórico de simulados...
               </div>
             )}
 

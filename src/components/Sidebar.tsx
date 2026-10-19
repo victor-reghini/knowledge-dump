@@ -5,6 +5,7 @@ import { CategoryTree } from './CategoryTree';
 import {
   BookOpen,
   Plus,
+  PlusCircle,
   Bookmark as BookmarkIcon,
   FileText,
   Star,
@@ -99,10 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeFolders = Array.isArray(folders) ? folders : [];
   const safeAllNotes = Array.isArray(allNotes) ? allNotes : [];
-  const safeNotes = Array.isArray(notes) ? notes : [];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showNewNoteMenu, setShowNewNoteMenu] = useState(false);
+  const [showBottomCreateFolder, setShowBottomCreateFolder] = useState(false);
+  const [bottomFolderName, setBottomFolderName] = useState('');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -116,9 +118,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} aria-label="Navegação Principal">
       <div className="sidebar-header">
         <div className="app-brand">
-          <BookOpen className="brand-icon" />
-          <span>Knowledge Dump</span>
-          <span className="brand-badge">v1.4</span>
+          <BookOpen className="brand-icon" style={{ color: '#e5a93c' }} />
+          <span><strong style={{ color: '#e5a93c' }}>Knowledge Dump</strong></span>
         </div>
         {onToggleCollapse && (
           <button
@@ -410,8 +411,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {selectedCategoryId
                       ? 'Itens na Categoria'
                       : selectedFolderId
-                      ? 'Itens na Pasta'
-                      : 'Anotações Rápidas'} ({totalCount})
+                        ? 'Itens na Pasta'
+                        : 'Anotações Rápidas'} ({totalCount})
                   </span>
                 </div>
 
@@ -491,6 +492,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })()}
         </div>
       </nav>
+
+      {/* Apple Notes Bottom Bar: + Nova pasta */}
+      <div className="sidebar-bottom-bar">
+        {showBottomCreateFolder ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (bottomFolderName.trim()) {
+                await onCreateFolder(bottomFolderName.trim(), null);
+                setBottomFolderName('');
+                setShowBottomCreateFolder(false);
+              }
+            }}
+            className="sidebar-bottom-form"
+          >
+            <input
+              type="text"
+              autoFocus
+              placeholder="Nome da nova pasta..."
+              value={bottomFolderName}
+              onChange={(e) => setBottomFolderName(e.target.value)}
+              className="sidebar-bottom-input"
+            />
+            <button type="submit" className="sidebar-bottom-btn-confirm" title="Criar">
+              Criar
+            </button>
+            <button
+              type="button"
+              className="sidebar-bottom-btn-cancel"
+              onClick={() => {
+                setShowBottomCreateFolder(false);
+                setBottomFolderName('');
+              }}
+              title="Cancelar"
+            >
+              ×
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="apple-new-folder-bottom-btn"
+            onClick={() => setShowBottomCreateFolder(true)}
+            title="Criar nova pasta"
+          >
+            <PlusCircle size={18} style={{ color: '#e5a93c' }} />
+            <span>Nova pasta</span>
+          </button>
+        )}
+      </div>
     </aside>
   );
 };

@@ -37,7 +37,7 @@ type ViewMode = 'preview' | 'edit' | 'split';
 export const TextViewer: React.FC<TextViewerProps> = ({
   reference,
   initialLine,
-  highlightText,
+  highlightText: _highlightText,
   onCite,
   onClose
 }) => {

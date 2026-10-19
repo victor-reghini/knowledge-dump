@@ -37,7 +37,7 @@ type ViewMode = 'rendered' | 'source' | 'split';
 export const LatexViewer: React.FC<LatexViewerProps> = ({
   reference,
   initialLine,
-  highlightText,
+  highlightText: _highlightText,
   onCite,
   onClose
 }) => {

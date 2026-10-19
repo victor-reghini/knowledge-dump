@@ -42,7 +42,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
   reference,
   initialSlide,
   initialPage,
-  highlightText,
+  highlightText: _highlightText,
   onCite,
   onClose
 }) => {

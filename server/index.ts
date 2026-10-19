@@ -10,7 +10,15 @@ import { db, initDatabase, hashPassword, hasFts5, DATA_DIR, REFS_DIR, recordTomb
 import { parseDocxFile, saveDocxFile, buildDocxFromContent } from './docx.js';
 import { parsePptxFile } from './pptx.js';
 import { compileToMarkdown, compileToLatex, compileToDocx, compileToPdf, CitationItem, ArticleExportData, CompileOptions } from './export.js';
-import { generateBackupPackage, uploadToGoogleDrive } from './backup.js';
+import {
+  generateBackupPackage,
+  uploadToGoogleDrive,
+  computeAcervoHash,
+  syncGoogleDriveBackup,
+  getLatestGoogleDriveBackup,
+  downloadFromGoogleDrive,
+  mergeBackupPackageIntoDatabase
+} from './backup.js';
 
 initDatabase();
 
@@ -2639,6 +2647,70 @@ server.get('/api/backup/download', async (request, reply) => {
 
 server.post('/api/backup/google-drive/upload', async (request, reply) => {
   const userId = getUserId(request);
+  const body = (request.body || {}) as { access_token?: string; force?: boolean };
+  let accessToken = body.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN || '';
+
+  if (!accessToken.trim()) {
+    const userRow = db.prepare('SELECT gdrive_token FROM users WHERE id = ?').get(userId) as any;
+    if (userRow?.gdrive_token) {
+      accessToken = userRow.gdrive_token;
+    }
+  }
+
+  if (!accessToken.trim()) {
+    return reply.status(400).send({
+      error: 'Access Token do Google Drive não fornecido. Conecte com sua Conta Google ou insira um token OAuth2.'
+    });
+  }
+
+  try {
+    const localHash = computeAcervoHash(userId);
+    const latest = await getLatestGoogleDriveBackup(accessToken.trim());
+
+    // Se os dados são iguais e não foi forçado, não há necessidade de enviar os dados atualizados
+    if (!body.force && latest && latest.dataHash && latest.dataHash === localHash) {
+      const { manifest } = await generateBackupPackage(userId);
+      return {
+        success: true,
+        skipped: true,
+        reason: 'identical_data',
+        hash: localHash,
+        file: {
+          fileId: latest.fileId,
+          name: latest.name,
+          webViewLink: latest.webViewLink,
+          size: latest.size
+        },
+        manifest
+      };
+    }
+
+    // Se forem diferentes e já existe backup na nuvem, combina os dados primeiro
+    let mergeStats = undefined;
+    if (!body.force && latest && latest.dataHash && latest.dataHash !== localHash) {
+      const cloudBuffer = latest.buffer || await downloadFromGoogleDrive(latest.fileId, accessToken.trim());
+      mergeStats = mergeBackupPackageIntoDatabase(cloudBuffer, userId);
+    }
+
+    const { buffer, filename, manifest, hash } = await generateBackupPackage(userId);
+    const driveResult = await uploadToGoogleDrive(buffer, filename, accessToken.trim(), hash);
+
+    return {
+      success: true,
+      file: driveResult,
+      manifest,
+      hash,
+      mergeStats
+    };
+  } catch (err: any) {
+    return reply.status(502).send({
+      error: err.message || 'Falha ao enviar backup para o Google Drive'
+    });
+  }
+});
+
+server.post('/api/backup/google-drive/sync', async (request, reply) => {
+  const userId = getUserId(request);
   const body = (request.body || {}) as { access_token?: string };
   let accessToken = body.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN || '';
 
@@ -2656,17 +2728,11 @@ server.post('/api/backup/google-drive/upload', async (request, reply) => {
   }
 
   try {
-    const { buffer, filename, manifest } = await generateBackupPackage(userId);
-    const driveResult = await uploadToGoogleDrive(buffer, filename, accessToken.trim());
-
-    return {
-      success: true,
-      file: driveResult,
-      manifest
-    };
+    const syncRes = await syncGoogleDriveBackup(userId, accessToken.trim());
+    return syncRes;
   } catch (err: any) {
     return reply.status(502).send({
-      error: err.message || 'Falha ao enviar backup para o Google Drive'
+      error: err.message || 'Falha na sincronização com o Google Drive'
     });
   }
 });

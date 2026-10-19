@@ -295,7 +295,7 @@ export const NotesDirectoryView: React.FC<NotesDirectoryViewProps> = ({
           <FileText size={42} style={{ opacity: 0.3 }} />
           <h3>Nenhum item encontrado nesta pasta</h3>
           <p>Crie uma nova nota ou associe arquivos de referência a este agrupamento.</p>
-          <button className="sidebar-action-btn" onClick={onNewNote}>
+          <button className="sidebar-action-btn" onClick={() => onNewNote?.()}>
             <Plus size={16} />
             <span>Criar Nota</span>
           </button>

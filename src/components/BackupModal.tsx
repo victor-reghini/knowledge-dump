@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, CloudUpload, HardDrive, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Settings, LogOut, Check } from 'lucide-react';
+import { X, Download, CloudUpload, HardDrive, CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Settings, LogOut } from 'lucide-react';
 import { api } from '../api';
 import { BackupStatus, BackupDriveUploadResult } from '../types';
 import { googleDriveSync, GoogleDriveSyncState } from '../utils/googleDriveSync';
@@ -365,13 +365,25 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
                 flexDirection: 'column',
                 gap: 6
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-green)', fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: uploadResult.skipped ? 'var(--accent-blue)' : 'var(--accent-green)', fontWeight: 600 }}>
                   <CheckCircle2 size={16} />
-                  <span>Backup enviado com sucesso ao Google Drive!</span>
+                  <span>
+                    {uploadResult.skipped
+                      ? 'Dados locais e na nuvem já estão idênticos (validação de hash aprovada, nenhum envio desnecessário).'
+                      : uploadResult.action === 'pulled'
+                      ? 'Dados da nuvem combinados e atualizados localmente com sucesso!'
+                      : uploadResult.merged
+                      ? 'Dados combinados e sincronizados com sucesso ao Google Drive!'
+                      : 'Backup enviado com sucesso ao Google Drive!'}
+                  </span>
                 </div>
-                <div><strong>Arquivo:</strong> {uploadResult.file.name}</div>
-                <div><strong>ID no Drive:</strong> <code>{uploadResult.file.fileId}</code></div>
-                {uploadResult.file.webViewLink && (
+                {uploadResult.file && (
+                  <>
+                    <div><strong>Arquivo:</strong> {uploadResult.file.name}</div>
+                    <div><strong>ID no Drive:</strong> <code>{uploadResult.file.fileId}</code></div>
+                  </>
+                )}
+                {uploadResult.file?.webViewLink && (
                   <a
                     href={uploadResult.file.webViewLink}
                     target="_blank"

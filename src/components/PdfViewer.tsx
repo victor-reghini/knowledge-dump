@@ -12,8 +12,6 @@ import {
   Search,
   Quote,
   X,
-  Maximize2,
-  Minimize2,
   FileText,
   BookmarkCheck
 } from 'lucide-react';
@@ -135,10 +133,11 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        canvas: canvas
       };
 
-      const task = page.render(renderContext);
+      const task = page.render(renderContext as any);
       renderTaskRef.current = task;
       await task.promise;
 

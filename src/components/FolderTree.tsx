@@ -225,9 +225,9 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
           <span className="folder-tree-icon">
             {isExpanded || isSelected ? (
-              <FolderOpen size={16} className="text-accent" />
+              <FolderOpen size={16} style={{ color: '#e5a93c' }} />
             ) : (
-              <FolderIcon size={16} />
+              <FolderIcon size={16} style={{ color: '#e5a93c' }} />
             )}
           </span>
 

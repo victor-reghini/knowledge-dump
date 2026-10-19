@@ -42,7 +42,7 @@ interface DocxViewerProps {
 export const DocxViewer: React.FC<DocxViewerProps> = ({
   reference,
   initialParagraph,
-  highlightText,
+  highlightText: _highlightText,
   onCite,
   onClose
 }) => {

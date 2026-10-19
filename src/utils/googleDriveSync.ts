@@ -23,6 +23,7 @@ type SyncListener = (state: GoogleDriveSyncState) => void;
 
 class GoogleDriveSyncManager {
   private isSyncing = false;
+  private hasInitialSynced = false;
   private lastError: string | null = null;
   private listeners: SyncListener[] = [];
   private debounceTimer: any = null;
@@ -37,6 +38,25 @@ class GoogleDriveSyncManager {
         }
       }, 30 * 60 * 1000);
     }
+  }
+
+  public isInitialSyncDone(): boolean {
+    return this.hasInitialSynced;
+  }
+
+  public destroy(): void {
+    if (this.autoSyncInterval) {
+      clearInterval(this.autoSyncInterval);
+      this.autoSyncInterval = null;
+    }
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+  }
+
+  public resetInitialSync(): void {
+    this.hasInitialSynced = false;
   }
 
   public getState(): GoogleDriveSyncState {
@@ -75,6 +95,7 @@ class GoogleDriveSyncManager {
     localStorage.setItem(STORAGE_GDRIVE_TOKEN, token);
     if (email) localStorage.setItem(STORAGE_GDRIVE_EMAIL, email);
     if (name) localStorage.setItem(STORAGE_GDRIVE_NAME, name);
+    this.hasInitialSynced = false;
     this.lastError = null;
     this.notify();
   }
@@ -109,15 +130,52 @@ class GoogleDriveSyncManager {
     localStorage.removeItem(STORAGE_GDRIVE_TOKEN);
     localStorage.removeItem(STORAGE_GDRIVE_EMAIL);
     localStorage.removeItem(STORAGE_GDRIVE_NAME);
+    this.hasInitialSynced = false;
     this.lastError = null;
     this.notify();
   }
 
   /**
-   * Dispara backup automático no Google Drive com debounce de 10s após salvar alterações
+   * Sincronização inicial ao abrir o app ou iniciar nova sessão:
+   * Consulta a nuvem primeiro, combina dados locais com os dados em nuvem,
+   * e depois destrava o envio de atualizações.
+   */
+  public async performStartupSync(explicitToken?: string): Promise<BackupDriveUploadResult | null> {
+    const token = explicitToken || this.getAccessToken();
+    if (!token) return null;
+
+    if (this.isSyncing) return null;
+    this.isSyncing = true;
+    this.lastError = null;
+    this.notify();
+
+    try {
+      const res = await api.syncWithGoogleDrive(token);
+      this.hasInitialSynced = true;
+      localStorage.setItem(STORAGE_GDRIVE_LAST_BACKUP, new Date().toISOString());
+      this.isSyncing = false;
+      this.lastError = null;
+      this.notify();
+      return res;
+    } catch (err: any) {
+      this.isSyncing = false;
+      this.lastError = err.message || 'Erro na sincronização com Google Drive';
+      this.notify();
+      throw err;
+    }
+  }
+
+  /**
+   * Dispara backup automático no Google Drive com debounce de 10s após salvar alterações.
+   * Só permite envio após a sincronização inicial ter consultado e combinado com a nuvem.
    */
   public notifyContentChanged(): void {
     if (!this.isConnected() || !this.isAutoSyncEnabled()) return;
+
+    if (!this.hasInitialSynced) {
+      this.performStartupSync().catch(() => {});
+      return;
+    }
 
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
@@ -126,12 +184,16 @@ class GoogleDriveSyncManager {
   }
 
   /**
-   * Executa upload de backup para o Google Drive
+   * Executa sincronização com o Google Drive (valida hash, combina se diferente, pula se igual)
    */
   public async triggerBackup(explicitToken?: string): Promise<BackupDriveUploadResult | null> {
     const token = explicitToken || this.getAccessToken();
     if (!token) {
       throw new Error('Nenhuma conta Google conectada');
+    }
+
+    if (!this.hasInitialSynced) {
+      return this.performStartupSync(token);
     }
 
     if (this.isSyncing) return null;
@@ -140,7 +202,7 @@ class GoogleDriveSyncManager {
     this.notify();
 
     try {
-      const res = await api.uploadBackupToGoogleDrive(token);
+      const res = await api.syncWithGoogleDrive(token);
       localStorage.setItem(STORAGE_GDRIVE_LAST_BACKUP, new Date().toISOString());
       this.isSyncing = false;
       this.lastError = null;

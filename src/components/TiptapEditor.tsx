@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -10,44 +10,83 @@ import Image from '@tiptap/extension-image';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
-import { Extension } from '@tiptap/core';
+import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import katex from 'katex';
 import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
   Strikethrough,
-  Code,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  Quote,
-  Minus,
   Undo,
   Redo,
+  Printer,
+  CheckCheck,
   Link as LinkIcon,
   Sigma,
-  Anchor as AnchorIcon,
-  ChevronDown,
-  ChevronUp,
-  Table as TableIcon,
-  Plus,
-  Trash2,
   Image as ImageIcon,
-  FileDown,
-  Printer,
-  Maximize2,
-  Minimize2,
-  FileText,
-  Palette,
-  Highlighter,
+  List,
+  ListOrdered,
   RemoveFormatting,
-  Eye,
-  SlidersHorizontal,
-  Columns
+  Table as TableIcon,
+  Edit3,
+  ArrowLeft,
+  ArrowRight,
+  MoreVertical,
+  Trash2,
+  SeparatorHorizontal,
+  BookOpen,
+  Scroll
 } from 'lucide-react';
+
+// Custom TipTap Extension for Google Docs / Word Page Break
+const PageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  selectable: true,
+  draggable: true,
+  atom: true,
+
+  parseHTML() {
+    return [
+      { tag: 'div[data-type="page-break"]' },
+      { tag: 'div.docs-page-break' },
+      { tag: 'hr.page-break' },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        'data-type': 'page-break',
+        class: 'docs-page-break',
+      }),
+      [
+        'div',
+        { class: 'docs-page-break-gap' },
+        ['span', { class: 'docs-page-break-label' }, 'Página'],
+      ],
+    ];
+  },
+
+  addCommands() {
+    return {
+      setPageBreak:
+        () =>
+          ({ chain }: any) => {
+            return chain().insertContent({ type: this.name }).run();
+          },
+    } as any;
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Enter': () => {
+        return (this.editor.commands as any).setPageBreak();
+      },
+    };
+  },
+});
 
 // Custom TipTap Extension for Font Size
 const FontSize = Extension.create({
@@ -66,9 +105,7 @@ const FontSize = Extension.create({
             default: null,
             parseHTML: (element) => element.style.fontSize?.replace(/['"]+/g, ''),
             renderHTML: (attributes) => {
-              if (!attributes.fontSize) {
-                return {};
-              }
+              if (!attributes.fontSize) return {};
               return {
                 style: `font-size: ${attributes.fontSize}`,
               };
@@ -101,32 +138,27 @@ interface TiptapEditorProps {
   onExportDocx?: () => void;
   onExportMarkdown?: () => void;
   onExportPdf?: () => void;
+  isPaginatedMode?: boolean;
+  onTogglePaginatedMode?: () => void;
 }
 
-type RibbonTab = 'home' | 'insert' | 'table' | 'view' | 'export';
-
-const FONT_SIZES = [
-  { label: '9 pt', value: '9pt' },
-  { label: '10 pt', value: '10pt' },
-  { label: '11 pt', value: '11pt' },
-  { label: '12 pt (Padrão)', value: '12pt' },
-  { label: '14 pt', value: '14pt' },
-  { label: '16 pt (Subtítulo)', value: '16pt' },
-  { label: '18 pt', value: '18pt' },
-  { label: '24 pt (Título)', value: '24pt' },
-  { label: '30 pt', value: '30pt' },
-  { label: '36 pt', value: '36pt' },
+const FONT_FAMILIES = [
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Inter', value: 'Inter, sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace' },
 ];
 
 const TEXT_COLORS = [
   { name: 'Padrão', value: 'inherit' },
   { name: 'Preto', value: '#18181b' },
-  { name: 'Cinza Escuro', value: '#52525b' },
+  { name: 'Cinza', value: '#52525b' },
   { name: 'Azul', value: '#2563eb' },
   { name: 'Verde', value: '#16a34a' },
   { name: 'Vermelho', value: '#dc2626' },
   { name: 'Roxo', value: '#7c3aed' },
-  { name: 'Laranja / Âmbar', value: '#d97706' },
+  { name: 'Laranja', value: '#d97706' },
 ];
 
 const HIGHLIGHT_COLORS = [
@@ -142,22 +174,36 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   content,
   onChange,
   onInsertWikilink,
-  onInsertMath,
-  onInsertAnchor,
-  noteTitle = 'Nota Sem Título',
-  noteId,
-  onExportDocx,
-  onExportMarkdown,
-  onExportPdf
+  onInsertMath: _onInsertMath,
+  onInsertAnchor: _onInsertAnchor,
+  noteTitle: _noteTitle = 'Nota Sem Título',
+  noteId: _noteId,
+  onExportDocx: _onExportDocx,
+  onExportMarkdown: _onExportMarkdown,
+  onExportPdf,
+  isPaginatedMode: isPaginatedModeProp,
+  onTogglePaginatedMode,
 }) => {
-  const [activeTab, setActiveTab] = useState<RibbonTab>('home');
-  const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
-  const [pageLayout, setPageLayout] = useState<'a4' | 'fluid'>('a4');
-  const [zoomPercent, setZoomPercent] = useState<number>(100);
+  const [localPaginatedMode, setLocalPaginatedMode] = useState<boolean>(true);
+  const isPaginated = isPaginatedModeProp !== undefined ? isPaginatedModeProp : localPaginatedMode;
+  const togglePaginated = () => {
+    if (onTogglePaginatedMode) {
+      onTogglePaginatedMode();
+    } else {
+      setLocalPaginatedMode((prev) => !prev);
+    }
+  };
 
-  // Dropdown open states
+  const [zoomPercent, setZoomPercent] = useState<number>(100);
+  const [currentFontSize, setCurrentFontSize] = useState<number>(11);
+  const [selectedFontFamily, setSelectedFontFamily] = useState<string>('Arial, sans-serif');
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  const [showRuler] = useState<boolean>(true);
+
+  // Modals & popovers
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showTableMenu, setShowTableMenu] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [showMathModal, setShowMathModal] = useState(false);
@@ -176,6 +222,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       Underline,
       TextStyle,
       FontSize,
+      PageBreak,
       Color,
       Highlight.configure({ multicolor: true }),
       Table.configure({
@@ -208,6 +255,26 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
     }
   }, [content, editor]);
 
+  // Extract headings dynamically for Google Docs "Guias no documento" outline
+  const headings = useMemo(() => {
+    if (!editor) return [];
+    const items: { text: string; level: number }[] = [];
+    try {
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'heading') {
+          const text = node.textContent?.trim();
+          if (text) {
+            items.push({
+              text,
+              level: node.attrs.level || 1,
+            });
+          }
+        }
+      });
+    } catch { }
+    return items;
+  }, [content, editor]);
+
   // Update KaTeX preview
   useEffect(() => {
     if (!mathInput.trim()) {
@@ -228,7 +295,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   if (!editor) {
     return (
       <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
-        Carregando editor completo no formato Word...
+        Carregando editor Google Docs...
       </div>
     );
   }
@@ -253,13 +320,29 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
     return 'p';
   };
 
-  // Font size handler
-  const handleFontSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const size = e.target.value;
-    if (!size) {
-      (editor.commands as any).unsetFontSize();
-    } else {
-      (editor.commands as any).setFontSize(size);
+  // Font size handlers
+  const handleFontSizeDelta = (delta: number) => {
+    const nextSize = Math.max(8, Math.min(72, currentFontSize + delta));
+    setCurrentFontSize(nextSize);
+    (editor.commands as any).setFontSize(`${nextSize}pt`);
+  };
+
+  // Font family change
+  const handleFontFamilyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const family = e.target.value;
+    setSelectedFontFamily(family);
+  };
+
+  // Click on heading in outline drawer scrolls into view
+  const handleHeadingClick = (text: string) => {
+    const sheet = document.querySelector('.docs-page-canvas');
+    if (!sheet) return;
+    const elements = sheet.querySelectorAll('h1, h2, h3');
+    for (const el of Array.from(elements)) {
+      if (el.textContent?.trim() === text.trim()) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      }
     }
   };
 
@@ -296,677 +379,522 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   };
 
   return (
-    <div className="word-editor-container">
-      {/* 1. Word / Docs Top Ribbon Menu Bar */}
-      <div className="word-ribbon">
-        {/* Ribbon Tab Headers */}
-        <div className="word-ribbon-tabs">
-          <button
-            type="button"
-            className={`word-tab ${activeTab === 'home' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('home');
-              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
-            }}
-          >
-            Página Inicial
-          </button>
-          <button
-            type="button"
-            className={`word-tab ${activeTab === 'insert' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('insert');
-              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
-            }}
-          >
-            Inserir
-          </button>
-          <button
-            type="button"
-            className={`word-tab ${activeTab === 'table' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('table');
-              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
-            }}
-          >
-            Tabela
-          </button>
-          <button
-            type="button"
-            className={`word-tab ${activeTab === 'view' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('view');
-              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
-            }}
-          >
-            Exibir
-          </button>
-          <button
-            type="button"
-            className={`word-tab ${activeTab === 'export' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('export');
-              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
-            }}
-          >
-            Exportar
-          </button>
+    <div className="word-editor-container" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
+      {/* 1. Google Docs Formatting Ribbon Toolbar */}
+      <div className="docs-ribbon-bar" role="toolbar" aria-label="Barra de Ferramentas Google Docs">
+        {/* Undo / Redo */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          className="docs-tool-btn"
+          title="Desfazer (Ctrl+Z)"
+        >
+          <Undo size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          className="docs-tool-btn"
+          title="Refazer (Ctrl+Y)"
+        >
+          <Redo size={14} />
+        </button>
 
-          {/* Retract / Collapse Ribbon Toggle */}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-muted)',
-                marginRight: 6,
-                fontWeight: 500
-              }}
-            >
-              Formato: DOCX (Word)
-            </span>
-            <button
-              type="button"
-              className="word-ribbon-toggle-btn"
-              onClick={() => setIsRibbonCollapsed((prev) => !prev)}
-              title={isRibbonCollapsed ? 'Expandir menus da faixa de opções' : 'Recolher menus (Modo Foco)'}
-            >
-              {isRibbonCollapsed ? (
-                <>
-                  <ChevronDown size={14} />
-                  <span>Expandir Menus</span>
-                </>
-              ) : (
-                <>
-                  <ChevronUp size={14} />
-                  <span>Recolher Menus</span>
-                </>
-              )}
-            </button>
-          </div>
+        {/* Print / Export PDF */}
+        <button
+          type="button"
+          onClick={onExportPdf || (() => window.print())}
+          className="docs-tool-btn"
+          title="Imprimir / Exportar PDF (Ctrl+P)"
+        >
+          <Printer size={14} />
+        </button>
+
+        {/* Spellcheck */}
+        <button
+          type="button"
+          className="docs-tool-btn"
+          title="Verificação ortográfica e gramatical"
+        >
+          <CheckCheck size={14} />
+        </button>
+
+        <div className="docs-tool-divider" />
+
+        {/* Zoom */}
+        <select
+          className="docs-tool-select"
+          value={zoomPercent}
+          onChange={(e) => setZoomPercent(Number(e.target.value))}
+          title="Zoom"
+        >
+          <option value={75}>75%</option>
+          <option value={90}>90%</option>
+          <option value={100}>100%</option>
+          <option value={125}>125%</option>
+          <option value={150}>150%</option>
+        </select>
+
+        <div className="docs-tool-divider" />
+
+        {/* Style Dropdown (Texto normal, Título 1, Título 2, etc.) */}
+        <select
+          className="docs-tool-select"
+          value={getCurrentFormat()}
+          onChange={handleFormatChange}
+          title="Estilos de Parágrafo"
+          style={{ minWidth: 110 }}
+        >
+          <option value="p">Texto normal</option>
+          <option value="h1">Título 1</option>
+          <option value="h2">Título 2</option>
+          <option value="h3">Título 3</option>
+          <option value="quote">Citação</option>
+          <option value="code">Código</option>
+        </select>
+
+        <div className="docs-tool-divider" />
+
+        {/* Font Family Dropdown */}
+        <select
+          className="docs-tool-select"
+          value={selectedFontFamily}
+          onChange={handleFontFamilyChange}
+          title="Fonte"
+          style={{ minWidth: 80 }}
+        >
+          {FONT_FAMILIES.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="docs-tool-divider" />
+
+        {/* Font Size: - 11 + */}
+        <div className="docs-font-size-group" title="Tamanho da fonte">
+          <button
+            type="button"
+            className="docs-font-size-btn"
+            onClick={() => handleFontSizeDelta(-1)}
+          >
+            -
+          </button>
+          <span className="docs-font-size-val">{currentFontSize}</span>
+          <button
+            type="button"
+            className="docs-font-size-btn"
+            onClick={() => handleFontSizeDelta(1)}
+          >
+            +
+          </button>
         </div>
 
-        {/* Ribbon Toolbars Content (Collapsible) */}
-        {!isRibbonCollapsed && (
-          <div className="word-ribbon-body">
-            {/* TAB: PÁGINA INICIAL */}
-            {activeTab === 'home' && (
-              <div className="word-ribbon-group-row">
-                {/* Desfazer / Refazer */}
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    onClick={() => editor.chain().focus().undo().run()}
-                    disabled={!editor.can().undo()}
-                    className="word-icon-btn"
-                    title="Desfazer (Ctrl+Z)"
-                  >
-                    <Undo size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => editor.chain().focus().redo().run()}
-                    disabled={!editor.can().redo()}
-                    className="word-icon-btn"
-                    title="Refazer (Ctrl+Y)"
-                  >
-                    <Redo size={15} />
-                  </button>
-                  <span className="word-group-label">Histórico</span>
-                </div>
+        <div className="docs-tool-divider" />
 
-                <div className="word-divider" />
+        {/* Character Formatting: B, I, U, Strike */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={`docs-tool-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
+          title="Negrito (Ctrl+B)"
+        >
+          <Bold size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={`docs-tool-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
+          title="Itálico (Ctrl+I)"
+        >
+          <Italic size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          className={`docs-tool-btn ${editor.isActive('underline') ? 'is-active' : ''}`}
+          title="Sublinhado (Ctrl+U)"
+        >
+          <UnderlineIcon size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          className={`docs-tool-btn ${editor.isActive('strike') ? 'is-active' : ''}`}
+          title="Tachado"
+        >
+          <Strikethrough size={14} />
+        </button>
 
-                {/* Formatação de Parágrafo & Tamanho de Fonte */}
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {/* Estilo Dropdown */}
-                    <select
-                      className="word-select"
-                      value={getCurrentFormat()}
-                      onChange={handleFormatChange}
-                      title="Estilo do Texto (Título, Subtítulo, Parágrafo)"
-                      style={{ minWidth: 120 }}
-                    >
-                      <option value="p">Texto Normal</option>
-                      <option value="h1">Título 1 (H1)</option>
-                      <option value="h2">Título 2 (H2)</option>
-                      <option value="h3">Título 3 (H3)</option>
-                      <option value="quote">Citação</option>
-                      <option value="code">Bloco de Código</option>
-                    </select>
+        {/* Text Color Picker */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            className="docs-tool-btn"
+            title="Cor do Texto"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.8rem', lineHeight: 1 }}>A</span>
+              <div style={{ width: 12, height: 3, backgroundColor: '#2563eb', marginTop: 1 }} />
+            </div>
+          </button>
+          {showColorPicker && (
+            <div className="word-palette-dropdown">
+              <div className="word-palette-header">Cor do Texto</div>
+              {TEXT_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  className="word-palette-item"
+                  onClick={() => {
+                    if (c.value === 'inherit') editor.chain().focus().unsetColor().run();
+                    else editor.chain().focus().setColor(c.value).run();
+                    setShowColorPicker(false);
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: c.value === 'inherit' ? '#888' : c.value,
+                      display: 'inline-block',
+                    }}
+                  />
+                  <span>{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-                    {/* Tamanho da Fonte */}
-                    <select
-                      className="word-select"
-                      onChange={handleFontSizeChange}
-                      defaultValue="12pt"
-                      title="Tamanho da Fonte"
-                      style={{ width: 85 }}
-                    >
-                      {FONT_SIZES.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <span className="word-group-label">Estilo & Fonte</span>
-                </div>
+        {/* Highlight Color Picker */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setShowHighlightPicker(!showHighlightPicker)}
+            className="docs-tool-btn"
+            title="Cor de Destaque"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Edit3 size={13} />
+              <div style={{ width: 12, height: 3, backgroundColor: '#fef08a', marginTop: 1 }} />
+            </div>
+          </button>
+          {showHighlightPicker && (
+            <div className="word-palette-dropdown">
+              <div className="word-palette-header">Cor de Realce</div>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  className="word-palette-item"
+                  onClick={() => {
+                    if (!c.value) editor.chain().focus().unsetHighlight().run();
+                    else editor.chain().focus().toggleHighlight({ color: c.value }).run();
+                    setShowHighlightPicker(false);
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      backgroundColor: c.value || '#eee',
+                      border: '1px solid #ccc',
+                      display: 'inline-block',
+                    }}
+                  />
+                  <span>{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-                <div className="word-divider" />
+        <div className="docs-tool-divider" />
 
-                {/* Estilos de Caractere (Bold, Italic, Underline, Strike, Code, Cor, Realce) */}
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleBold().run()}
-                      className={`word-icon-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
-                      title="Negrito (Ctrl+B)"
-                    >
-                      <Bold size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleItalic().run()}
-                      className={`word-icon-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
-                      title="Itálico (Ctrl+I)"
-                    >
-                      <Italic size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleUnderline().run()}
-                      className={`word-icon-btn ${editor.isActive('underline') ? 'is-active' : ''}`}
-                      title="Sublinhado (Ctrl+U)"
-                    >
-                      <UnderlineIcon size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleStrike().run()}
-                      className={`word-icon-btn ${editor.isActive('strike') ? 'is-active' : ''}`}
-                      title="Tachado"
-                    >
-                      <Strikethrough size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleCode().run()}
-                      className={`word-icon-btn ${editor.isActive('code') ? 'is-active' : ''}`}
-                      title="Código Inline"
-                    >
-                      <Code size={15} />
-                    </button>
+        {/* Link / Wikilink */}
+        <button
+          type="button"
+          onClick={onInsertWikilink}
+          className="docs-tool-btn"
+          title="Inserir Wikilink [[Nota]]"
+        >
+          <LinkIcon size={14} />
+        </button>
 
-                    {/* Cor do Texto Dropdown */}
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowColorPicker(!showColorPicker);
-                          setShowHighlightPicker(false);
-                        }}
-                        className="word-icon-btn"
-                        title="Cor da Fonte"
-                      >
-                        <Palette size={15} />
-                      </button>
-                      {showColorPicker && (
-                        <div className="word-palette-dropdown">
-                          <div className="word-palette-header">Cor do Texto</div>
-                          {TEXT_COLORS.map((c) => (
-                            <button
-                              key={c.value}
-                              type="button"
-                              className="word-palette-item"
-                              onClick={() => {
-                                if (c.value === 'inherit') {
-                                  editor.chain().focus().unsetColor().run();
-                                } else {
-                                  editor.chain().focus().setColor(c.value).run();
-                                }
-                                setShowColorPicker(false);
-                              }}
-                            >
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  width: 14,
-                                  height: 14,
-                                  borderRadius: 3,
-                                  backgroundColor: c.value === 'inherit' ? 'var(--text-primary)' : c.value,
-                                  border: '1px solid rgba(0,0,0,0.2)'
-                                }}
-                              />
-                              <span>{c.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+        {/* KaTeX Math Equation */}
+        <button
+          type="button"
+          onClick={() => setShowMathModal(true)}
+          className="docs-tool-btn"
+          title="Inserir Equação Matemática LaTeX / KaTeX"
+        >
+          <Sigma size={14} />
+        </button>
 
-                    {/* Cor de Realce Dropdown */}
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHighlightPicker(!showHighlightPicker);
-                          setShowColorPicker(false);
-                        }}
-                        className={`word-icon-btn ${editor.isActive('highlight') ? 'is-active' : ''}`}
-                        title="Cor de Realce do Texto"
-                      >
-                        <Highlighter size={15} />
-                      </button>
-                      {showHighlightPicker && (
-                        <div className="word-palette-dropdown">
-                          <div className="word-palette-header">Cor de Realce</div>
-                          {HIGHLIGHT_COLORS.map((h) => (
-                            <button
-                              key={h.value}
-                              type="button"
-                              className="word-palette-item"
-                              onClick={() => {
-                                if (!h.value) {
-                                  editor.chain().focus().unsetHighlight().run();
-                                } else {
-                                  editor.chain().focus().toggleHighlight({ color: h.value }).run();
-                                }
-                                setShowHighlightPicker(false);
-                              }}
-                            >
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  width: 14,
-                                  height: 14,
-                                  borderRadius: 3,
-                                  backgroundColor: h.value || 'transparent',
-                                  border: '1px solid rgba(0,0,0,0.2)'
-                                }}
-                              />
-                              <span>{h.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+        {/* Image */}
+        <button
+          type="button"
+          onClick={() => setShowImageModal(true)}
+          className="docs-tool-btn"
+          title="Inserir imagem"
+        >
+          <ImageIcon size={14} />
+        </button>
 
-                    {/* Limpar Formatação */}
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
-                      className="word-icon-btn"
-                      title="Limpar Toda a Formatação"
-                    >
-                      <RemoveFormatting size={15} />
-                    </button>
-                  </div>
-                  <span className="word-group-label">Formatação</span>
-                </div>
+        <div className="docs-tool-divider" />
 
-                <div className="word-divider" />
+        {/* Lists & Tasks */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={`docs-tool-btn ${editor.isActive('bulletList') ? 'is-active' : ''}`}
+          title="Lista com Marcadores"
+        >
+          <List size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={`docs-tool-btn ${editor.isActive('orderedList') ? 'is-active' : ''}`}
+          title="Lista Numerada"
+        >
+          <ListOrdered size={14} />
+        </button>
 
-                {/* Listas e Parágrafo */}
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleBulletList().run()}
-                      className={`word-icon-btn ${editor.isActive('bulletList') ? 'is-active' : ''}`}
-                      title="Marcadores"
-                    >
-                      <List size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                      className={`word-icon-btn ${editor.isActive('orderedList') ? 'is-active' : ''}`}
-                      title="Numeração"
-                    >
-                      <ListOrdered size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                      className={`word-icon-btn ${editor.isActive('blockquote') ? 'is-active' : ''}`}
-                      title="Citação em Bloco"
-                    >
-                      <Quote size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editor.chain().focus().setHorizontalRule().run()}
-                      className="word-icon-btn"
-                      title="Linha Horizontal"
-                    >
-                      <Minus size={15} />
-                    </button>
-                  </div>
-                  <span className="word-group-label">Parágrafo</span>
-                </div>
-              </div>
-            )}
+        {/* Clear formatting */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+          className="docs-tool-btn"
+          title="Limpar Formatação"
+        >
+          <RemoveFormatting size={14} />
+        </button>
 
-            {/* TAB: INSERIR */}
-            {activeTab === 'insert' && (
-              <div className="word-ribbon-group-row">
-                {/* Tabelas */}
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    onClick={() =>
-                      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-                    }
-                    title="Inserir Tabela 3x3 no documento"
-                  >
-                    <TableIcon size={15} />
-                    <span>Inserir Tabela (3x3)</span>
-                  </button>
-                  <span className="word-group-label">Tabelas</span>
-                </div>
+        {/* Table Menu */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setShowTableMenu(!showTableMenu)}
+            className="docs-tool-btn"
+            title="Inserir ou gerenciar tabela"
+          >
+            <TableIcon size={14} />
+          </button>
+          {showTableMenu && (
+            <div className="word-palette-dropdown" style={{ minWidth: 160 }}>
+              <div className="word-palette-header">Opções de Tabela</div>
+              <button
+                type="button"
+                className="word-palette-item"
+                onClick={() => {
+                  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                  setShowTableMenu(false);
+                }}
+              >
+                + Tabela 3x3
+              </button>
+              <button
+                type="button"
+                className="word-palette-item"
+                onClick={() => {
+                  editor.chain().focus().addRowAfter().run();
+                  setShowTableMenu(false);
+                }}
+              >
+                + Linha Abaixo
+              </button>
+              <button
+                type="button"
+                className="word-palette-item"
+                onClick={() => {
+                  editor.chain().focus().addColumnAfter().run();
+                  setShowTableMenu(false);
+                }}
+              >
+                + Coluna à Direita
+              </button>
+              <button
+                type="button"
+                className="word-palette-item"
+                style={{ color: 'var(--accent-red)' }}
+                onClick={() => {
+                  editor.chain().focus().deleteTable().run();
+                  setShowTableMenu(false);
+                }}
+              >
+                <Trash2 size={12} />
+                <span>Excluir Tabela</span>
+              </button>
+            </div>
+          )}
+        </div>
 
-                <div className="word-divider" />
+        {/* Page Break (Quebra de Página - Ctrl+Enter) */}
+        <button
+          type="button"
+          onClick={() => (editor.commands as any).setPageBreak()}
+          className="docs-tool-btn"
+          title="Inserir Quebra de Página (Ctrl+Enter)"
+        >
+          <SeparatorHorizontal size={14} />
+        </button>
 
-                {/* Imagens */}
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    onClick={() => setShowImageModal(true)}
-                    title="Inserir Imagem (URL ou Arquivo do Computador)"
-                  >
-                    <ImageIcon size={15} />
-                    <span>Inserir Imagem</span>
-                  </button>
-                  <span className="word-group-label">Mídia</span>
-                </div>
+        {/* Right Mode Indicator: "Edição" & "Com Páginas / Sem Páginas" */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            onClick={togglePaginated}
+            className={`docs-tool-btn ${isPaginated ? 'is-active' : ''}`}
+            title={
+              isPaginated
+                ? 'Modo Com Páginas (A4) ativo. Clique para alternar para Contínuo.'
+                : 'Modo Sem Páginas (Contínuo) ativo. Clique para alternar para Com Páginas.'
+            }
+          >
+            {isPaginated ? <BookOpen size={14} /> : <Scroll size={14} />}
+          </button>
 
-                <div className="word-divider" />
-
-                {/* LaTeX / KaTeX Math */}
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    onClick={() => setShowMathModal(true)}
-                    title="Inserir Bloco de Fórmula Matemática LaTeX / KaTeX"
-                  >
-                    <Sigma size={15} />
-                    <span>Fórmula LaTeX / KaTeX</span>
-                  </button>
-                  <span className="word-group-label">Equações</span>
-                </div>
-
-                <div className="word-divider" />
-
-                {/* Código e Markdown */}
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                    title="Inserir Bloco de Código com realce"
-                  >
-                    <Code size={15} />
-                    <span>Bloco de Código</span>
-                  </button>
-                  <span className="word-group-label">Código</span>
-                </div>
-
-                <div className="word-divider" />
-
-                {/* Wikilinks & Âncoras */}
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={onInsertWikilink}
-                      title="Inserir Wikilink [[Nome da Nota#âncora]]"
-                    >
-                      <LinkIcon size={14} />
-                      <span>Wikilink</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={onInsertAnchor}
-                      title="Inserir Marcador de Âncora {#secao}"
-                    >
-                      <AnchorIcon size={14} />
-                      <span>Âncora</span>
-                    </button>
-                  </div>
-                  <span className="word-group-label">Conexões</span>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: TABELA */}
-            {activeTab === 'table' && (
-              <div className="word-ribbon-group-row">
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    onClick={() =>
-                      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-                    }
-                  >
-                    <Plus size={14} />
-                    <span>Nova Tabela</span>
-                  </button>
-                  <span className="word-group-label">Criar</span>
-                </div>
-
-                <div className="word-divider" />
-
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().addRowBefore().run()}
-                      title="Adicionar Linha Acima"
-                    >
-                      + Linha Acima
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().addRowAfter().run()}
-                      title="Adicionar Linha Abaixo"
-                    >
-                      + Linha Abaixo
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().deleteRow().run()}
-                      title="Excluir Linha Selecionada"
-                    >
-                      Excluir Linha
-                    </button>
-                  </div>
-                  <span className="word-group-label">Linhas</span>
-                </div>
-
-                <div className="word-divider" />
-
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().addColumnBefore().run()}
-                      title="Adicionar Coluna Antes"
-                    >
-                      + Coluna Antes
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().addColumnAfter().run()}
-                      title="Adicionar Coluna Depois"
-                    >
-                      + Coluna Depois
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => editor.chain().focus().deleteColumn().run()}
-                      title="Excluir Coluna Selecionada"
-                    >
-                      Excluir Coluna
-                    </button>
-                  </div>
-                  <span className="word-group-label">Colunas</span>
-                </div>
-
-                <div className="word-divider" />
-
-                <div className="word-tool-group">
-                  <button
-                    type="button"
-                    className="word-action-chip"
-                    style={{ color: 'var(--accent-red)' }}
-                    onClick={() => editor.chain().focus().deleteTable().run()}
-                    title="Excluir Tabela Inteira"
-                  >
-                    <Trash2 size={14} />
-                    <span>Excluir Tabela</span>
-                  </button>
-                  <span className="word-group-label">Ações</span>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: EXIBIR */}
-            {activeTab === 'view' && (
-              <div className="word-ribbon-group-row">
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      type="button"
-                      className={`word-action-chip ${pageLayout === 'a4' ? 'active' : ''}`}
-                      onClick={() => setPageLayout('a4')}
-                    >
-                      <FileText size={14} />
-                      <span>Layout Página A4 (Word)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`word-action-chip ${pageLayout === 'fluid' ? 'active' : ''}`}
-                      onClick={() => setPageLayout('fluid')}
-                    >
-                      <Maximize2 size={14} />
-                      <span>Largura Total (Fluida)</span>
-                    </button>
-                  </div>
-                  <span className="word-group-label">Modo de Exibição</span>
-                </div>
-
-                <div className="word-divider" />
-
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button
-                      type="button"
-                      className="word-icon-btn"
-                      onClick={() => setZoomPercent((prev) => Math.max(75, prev - 10))}
-                      title="Diminuir Zoom"
-                    >
-                      -
-                    </button>
-                    <span style={{ fontSize: '0.82rem', minWidth: 44, textAlign: 'center' }}>
-                      {zoomPercent}%
-                    </span>
-                    <button
-                      type="button"
-                      className="word-icon-btn"
-                      onClick={() => setZoomPercent((prev) => Math.min(150, prev + 10))}
-                      title="Aumentar Zoom"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={() => setZoomPercent(100)}
-                      style={{ padding: '2px 6px', fontSize: '0.72rem' }}
-                    >
-                      100%
-                    </button>
-                  </div>
-                  <span className="word-group-label">Zoom da Página</span>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: EXPORTAR */}
-            {activeTab === 'export' && (
-              <div className="word-ribbon-group-row">
-                <div className="word-tool-group">
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      type="button"
-                      className="word-action-chip primary"
-                      onClick={onExportDocx}
-                      title="Exportar anotação como documento Microsoft Word (.docx)"
-                    >
-                      <FileDown size={15} />
-                      <span>Exportar como Word (.docx)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={onExportPdf || (() => window.print())}
-                      title="Exportar / Imprimir como PDF (.pdf)"
-                    >
-                      <Printer size={15} />
-                      <span>Exportar como PDF (.pdf)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="word-action-chip"
-                      onClick={onExportMarkdown}
-                      title="Exportar como Markdown (.md)"
-                    >
-                      <FileText size={15} />
-                      <span>Exportar como Markdown (.md)</span>
-                    </button>
-                  </div>
-                  <span className="word-group-label">Opções de Exportação</span>
-                </div>
-              </div>
-            )}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: '0.78rem',
+              color: 'var(--text-secondary)',
+              padding: '2px 8px',
+              borderRadius: 4,
+              backgroundColor: 'var(--bg-tertiary)',
+            }}
+          >
+            <Edit3 size={12} />
+            <span>Edição</span>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* 2. Word Workbench / Paper Page View */}
-      <div className={`word-workbench-area ${pageLayout === 'fluid' ? 'is-fluid' : ''}`}>
-        <div
-          className="word-page-sheet printable-document"
-          style={{
-            transform: zoomPercent !== 100 ? `scale(${zoomPercent / 100})` : undefined,
-            transformOrigin: 'top center'
-          }}
+      {/* 2. Google Docs Horizontal Measurement Ruler */}
+      {showRuler && (
+        <div className="docs-ruler-bar" title="Régua do Documento">
+          <div className="docs-ruler-scale">
+            <div className="docs-ruler-slider-left" />
+            {[...Array(18)].map((_, i) => {
+              const num = i + 1;
+              const leftPercent = (num / 18) * 100;
+              return (
+                <React.Fragment key={num}>
+                  <span
+                    className="docs-ruler-number"
+                    style={{ left: `${leftPercent}%` }}
+                  >
+                    {num}
+                  </span>
+                  <div
+                    className="docs-ruler-tick"
+                    style={{ left: `${leftPercent}%`, height: 8 }}
+                  />
+                  {num < 18 && (
+                    <div
+                      className="docs-ruler-tick"
+                      style={{ left: `${leftPercent + 100 / 36}%`, height: 4 }}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+            <div className="docs-ruler-slider-right" />
+          </div>
+        </div>
+      )}
+
+      {/* 3. Google Docs Workbench: Left Outline Drawer + White Paper Canvas */}
+      <div className="docs-workbench-container">
+        {/* Left Drawer ("Guias no documento" & Headings Outline) */}
+        <aside
+          className={`docs-outline-drawer ${!isDrawerOpen ? 'collapsed' : ''}`}
+          aria-label="Sumário e Guias do Documento"
         >
-          {/* Document Header Line (Visual Guide) */}
-          <div className="word-page-header-indicator">
-            <span className="word-page-title-preview">{noteTitle}</span>
-            <span className="word-page-date-indicator">{new Date().toLocaleDateString('pt-BR')}</span>
+          <div className="docs-guias-title">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Guias no documento</span>
+            </div>
+            <button
+              type="button"
+              className="docs-doc-chip-btn"
+              onClick={() => setIsDrawerOpen(false)}
+              title="Recolher guias do documento"
+            >
+              <ArrowLeft size={14} />
+            </button>
           </div>
 
-          {/* Main TipTap Editing Surface */}
-          <EditorContent editor={editor} className="word-editor-content" />
-        </div>
+          {/* Active Guide Tab */}
+          <div className="docs-guia-tab">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '0.8rem' }}>📄</span>
+              <span>Guia 1</span>
+            </div>
+            <MoreVertical size={13} style={{ opacity: 0.6 }} />
+          </div>
+
+          <div style={{ marginTop: 8 }}>
+            <span className="docs-outline-subtitle">
+              {headings.length === 0
+                ? 'Os títulos que forem adicionados ao documento aparecerão aqui.'
+                : 'Sumário de Títulos:'}
+            </span>
+          </div>
+
+          {/* Dynamic Headings List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+            {headings.map((h, idx) => (
+              <button
+                key={`${h.text}-${idx}`}
+                type="button"
+                className="docs-outline-item"
+                style={{ paddingLeft: `${(h.level - 1) * 12 + 6}px` }}
+                onClick={() => handleHeadingClick(h.text)}
+                title={`Ir para: ${h.text}`}
+              >
+                {h.text}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Toggle open drawer button when collapsed */}
+        {!isDrawerOpen && (
+          <button
+            type="button"
+            className="notes-column-toggle-btn"
+            style={{ position: 'absolute', left: 4, top: 110, zIndex: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
+            onClick={() => setIsDrawerOpen(true)}
+            title="Expandir guias do documento"
+          >
+            <ArrowRight size={14} />
+          </button>
+        )}
+
+        {/* Main Desk Surface & White Page Canvas */}
+        <main className="docs-desk-area">
+          <div
+            className={`docs-page-canvas printable-document ${!isPaginated ? 'is-pageless' : ''}`}
+            style={{
+              transform: zoomPercent !== 100 ? `scale(${zoomPercent / 100})` : undefined,
+              transformOrigin: 'top center',
+              fontFamily: selectedFontFamily,
+            }}
+          >
+            <EditorContent editor={editor} className="word-editor-content" />
+          </div>
+        </main>
       </div>
 
       {/* Modal: Inserir Imagem */}
@@ -974,10 +902,9 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
         <div className="modal-overlay" onClick={() => setShowImageModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
             <h3 style={{ margin: '0 0 14px 0', fontSize: '1.1rem' }}>Inserir Imagem na Nota</h3>
-
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: 6 }}>
-                Opção 1: Enviar do Computador
+                Enviar do Computador:
               </label>
               <input
                 ref={imageFileInputRef}
@@ -987,16 +914,9 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
                 style={{ fontSize: '0.82rem' }}
               />
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
-              <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-color)' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>OU</span>
-              <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-color)' }} />
-            </div>
-
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: 6 }}>
-                Opção 2: URL da Imagem na Web
+                Ou URL da Imagem na Web:
               </label>
               <input
                 type="text"
@@ -1009,11 +929,10 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
                   borderRadius: 6,
                   border: '1px solid var(--border-color)',
                   background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)'
+                  color: 'var(--text-primary)',
                 }}
               />
             </div>
-
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button
                 type="button"
@@ -1040,10 +959,6 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
         <div className="modal-overlay" onClick={() => setShowMathModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>Inserir Equação LaTeX / KaTeX</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
-              Digite o código em notação matemática LaTeX. O preview em tempo real é exibido abaixo.
-            </p>
-
             <textarea
               value={mathInput}
               onChange={(e) => setMathInput(e.target.value)}
@@ -1057,11 +972,10 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
                 fontSize: '0.85rem',
                 background: 'var(--bg-secondary)',
                 color: 'var(--text-primary)',
-                marginBottom: 12
+                marginBottom: 12,
               }}
-              placeholder="ex: \int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}"
+              placeholder="ex: \sigma(z) = \frac{1}{1 + e^{-z}}"
             />
-
             <div style={{ marginBottom: 16 }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                 PREVIEW EM TEMPO REAL:
@@ -1072,7 +986,6 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
                 dangerouslySetInnerHTML={{ __html: mathPreviewHtml }}
               />
             </div>
-
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button
                 type="button"
@@ -1087,7 +1000,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
                 onClick={handleInsertMathConfirm}
                 disabled={!mathInput.trim()}
               >
-                Inserir no Documento
+                Inserir Equação
               </button>
             </div>
           </div>

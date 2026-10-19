@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   PenTool,
-  BookOpen,
-  FileText,
   Download,
   Trash2,
   Plus,
@@ -19,7 +17,7 @@ import {
   List
 } from 'lucide-react';
 import { api } from '../api';
-import { Article, ArticleCitation, ReferenceFile, Note } from '../types';
+import { Article, ReferenceFile, Note } from '../types';
 
 interface ScientificEditorProps {
   references: ReferenceFile[];

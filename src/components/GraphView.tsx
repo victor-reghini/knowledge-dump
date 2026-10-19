@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GraphData, GraphNode, GraphLink, Category, Folder } from '../types';
+import { GraphData, GraphNode, Category, Folder } from '../types';
 import { api } from '../api';
 import {
   Search,
@@ -10,14 +10,8 @@ import {
   Play,
   Pause,
   RotateCcw,
-  BookOpen,
-  FileText,
-  FileCode,
-  Film,
-  Music,
   Sliders,
   ExternalLink,
-  Info,
   X
 } from 'lucide-react';
 
@@ -49,7 +43,7 @@ interface SimLink {
 
 export const GraphView: React.FC<GraphViewProps> = ({
   categories,
-  folders,
+  folders: _folders,
   onSelectNote,
   onSelectReference,
   onClose
@@ -686,7 +680,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = () => {
     if (isDraggingNodeRef.current) {
       // Release dragged node pin
       isDraggingNodeRef.current.fx = null;
@@ -1290,6 +1284,27 @@ export const GraphView: React.FC<GraphViewProps> = ({
             <span>Citação</span>
           </div>
         </div>
+
+        {/* Error Overlay */}
+        {error && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--accent-red, #ef4444)',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              color: 'var(--accent-red, #ef4444)',
+              zIndex: 40
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {/* Loading Indicator */}
         {loading && (

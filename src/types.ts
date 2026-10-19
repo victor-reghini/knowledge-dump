@@ -72,6 +72,8 @@ export interface Bookmark {
 
 export interface Citation {
   id: string;
+  note_id?: string;
+  reference_id?: string;
   quote_text: string;
   page_number?: number;
   anchor_data?: string;
@@ -373,17 +375,24 @@ export interface BackupStatus {
 
 export interface BackupDriveUploadResult {
   success: boolean;
-  file: {
+  skipped?: boolean;
+  reason?: string;
+  action?: 'pulled' | 'merged_and_pushed' | 'pushed_initial' | 'in_sync' | string;
+  merged?: boolean;
+  hash?: string;
+  file?: {
     fileId: string;
     name: string;
     webViewLink?: string;
     size: number;
   };
-  manifest: {
+  manifest?: {
     knowledge_dump_version: string;
     backup_created_at: string;
     counts: Record<string, number>;
+    data_hash?: string;
   };
+  mergeStats?: Record<string, number>;
 }
 
 
