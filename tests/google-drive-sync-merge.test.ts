@@ -240,4 +240,29 @@ describe('Sincronização com Google Drive: Validação por Hash e Combinação 
     assert.equal(body2.skipped, true);
     assert.equal(body2.reason, 'identical_data');
   });
+
+  test('8. Backups no Google Drive são vinculados à pasta Knowledge Dump Backups', async () => {
+    const pkg = await generateBackupPackage(testUserId);
+    const driveRes = await uploadToGoogleDrive(pkg.buffer, 'knowledge-dump-backup-test.zip', 'mock-token', pkg.hash);
+
+    assert.equal(driveRes.folderName, 'Knowledge Dump Backups');
+    assert.ok(mockGoogleDriveStore[0].parents?.includes('mock-folder-knowledge-dump-backups'));
+  });
+
+  test('9. Backups no Google Drive mantêm no máximo 3 arquivos (remove excedentes mais antigos)', async () => {
+    clearMockGoogleDriveStore();
+    const pkg = await generateBackupPackage(testUserId);
+
+    // Envia 5 backups sucessivos
+    for (let i = 1; i <= 5; i++) {
+      await uploadToGoogleDrive(pkg.buffer, `knowledge-dump-backup-test-${i}.zip`, 'mock-token', `${pkg.hash}-${i}`);
+    }
+
+    // Deve manter no máximo 3 arquivos no store
+    assert.equal(mockGoogleDriveStore.length, 3, 'Deve manter no máximo 3 backups no Google Drive');
+    // Os backups mantidos devem ser os mais recentes (5, 4, 3)
+    assert.equal(mockGoogleDriveStore[0].name, 'knowledge-dump-backup-test-5.zip');
+    assert.equal(mockGoogleDriveStore[1].name, 'knowledge-dump-backup-test-4.zip');
+    assert.equal(mockGoogleDriveStore[2].name, 'knowledge-dump-backup-test-3.zip');
+  });
 });

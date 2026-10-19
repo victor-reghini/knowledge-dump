@@ -135,6 +135,7 @@ export function parseDocxBuffer(buffer: Buffer): DocxContent {
       const isBold = /<w:b(?:\s|\/|>)/.test(rBody) && !/<w:b\s+w:val="(?:0|false)"/.test(rBody);
       const isItalic = /<w:i(?:\s|\/|>)/.test(rBody) && !/<w:i\s+w:val="(?:0|false)"/.test(rBody);
       const isUnderline = /<w:u(?:\s|\/|>)/.test(rBody) && !/<w:u\s+w:val="(?:none|0|false)"/.test(rBody);
+      const isStrike = /<w:strike(?:\s|\/|>)/.test(rBody) && !/<w:strike\s+w:val="(?:0|false)"/.test(rBody);
 
       // Extrai texto <w:t>
       const tMatches = rBody.match(/<w:t(?:\s+[^>]*)?>(.*?)<\/w:t>/gs);
@@ -148,6 +149,7 @@ export function parseDocxBuffer(buffer: Buffer): DocxContent {
           if (isBold) formattedSnippet = `<strong>${formattedSnippet}</strong>`;
           if (isItalic) formattedSnippet = `<em>${formattedSnippet}</em>`;
           if (isUnderline) formattedSnippet = `<u>${formattedSnippet}</u>`;
+          if (isStrike) formattedSnippet = `<s>${formattedSnippet}</s>`;
 
           htmlContent += formattedSnippet;
         }
@@ -306,14 +308,10 @@ export function saveDocxFile(filePath: string, updatedText: string): void {
     );
   }
 
-  // Gera o XML de parágrafos
-  const paragraphs = updatedText.split(/\n\s*\n/).filter((p) => p.trim());
-  const paragraphsXml = paragraphs
-    .map((p) => {
-      const clean = escapeHtml(p.trim());
-      return `<w:p><w:r><w:t xml:space="preserve">${clean}</w:t></w:r></w:p>`;
-    })
-    .join('\n    ');
+  const isHtml = /<[a-z][\s\S]*>/i.test(updatedText);
+  const paragraphsXml = isHtml
+    ? htmlToDocxXml(updatedText)
+    : parsePlainTextToDocxXml(updatedText);
 
   const newDocXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
@@ -327,6 +325,97 @@ export function saveDocxFile(filePath: string, updatedText: string): void {
 
   const packedBuffer = packZipEntries(entries);
   fs.writeFileSync(filePath, packedBuffer);
+}
+
+function parseHtmlInlineRuns(innerHtml: string): string {
+  let runsXml = '';
+  const tokenRegex = /(<[^>]+>|[^<]+)/g;
+  let isBold = false;
+  let isItalic = false;
+  let isUnderline = false;
+  let isStrike = false;
+
+  let match: RegExpExecArray | null;
+  while ((match = tokenRegex.exec(innerHtml)) !== null) {
+    const token = match[1];
+    if (token.startsWith('<')) {
+      const lower = token.toLowerCase();
+      if (/^<(b|strong)\b/.test(lower)) isBold = true;
+      else if (/^<\/(b|strong)>/.test(lower)) isBold = false;
+      else if (/^<(i|em)\b/.test(lower)) isItalic = true;
+      else if (/^<\/(i|em)>/.test(lower)) isItalic = false;
+      else if (/^<u\b/.test(lower)) isUnderline = true;
+      else if (/^<\/u>/.test(lower)) isUnderline = false;
+      else if (/^<(s|strike|del)\b/.test(lower)) isStrike = true;
+      else if (/^<\/(s|strike|del)>/.test(lower)) isStrike = false;
+      else if (/^<br\b/.test(lower)) runsXml += '<w:r><w:br/></w:r>';
+    } else {
+      const decoded = decodeXmlEntities(token);
+      if (decoded) {
+        const escaped = escapeHtml(decoded);
+        let rPr = '';
+        if (isBold) rPr += '<w:b/>';
+        if (isItalic) rPr += '<w:i/>';
+        if (isUnderline) rPr += '<w:u w:val="single"/>';
+        if (isStrike) rPr += '<w:strike/>';
+        runsXml += `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${escaped}</w:t></w:r>`;
+      }
+    }
+  }
+  return runsXml;
+}
+
+export function htmlToDocxXml(html: string): string {
+  const normalized = html
+    .replace(/<div[^>]*data-type="page-break"[^>]*>.*?<\/div>/gi, '<p class="__page_break__"></p>')
+    .replace(/<hr[^>]*class="[^"]*page-break[^"]*"[^>]*>/gi, '<p class="__page_break__"></p>');
+
+  const blockRegex = /<(h1|h2|h3|p|blockquote|li)\b[^>]*>(.*?)<\/\1>/gis;
+  const pList: string[] = [];
+  let bMatch: RegExpExecArray | null;
+
+  while ((bMatch = blockRegex.exec(normalized)) !== null) {
+    const tag = bMatch[1].toLowerCase();
+    const content = bMatch[2];
+
+    if (bMatch[0].includes('__page_break__')) {
+      pList.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+      continue;
+    }
+
+    const runs = parseHtmlInlineRuns(content);
+    if (!runs) continue;
+
+    if (tag === 'h1') {
+      pList.push(`<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr>${runs}</w:p>`);
+    } else if (tag === 'h2') {
+      pList.push(`<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:spacing w:before="180" w:after="100"/></w:pPr>${runs}</w:p>`);
+    } else if (tag === 'h3') {
+      pList.push(`<w:p><w:pPr><w:pStyle w:val="Heading3"/><w:spacing w:before="140" w:after="80"/></w:pPr>${runs}</w:p>`);
+    } else if (tag === 'blockquote') {
+      pList.push(`<w:p><w:pPr><w:ind w:left="720"/></w:pPr>${runs}</w:p>`);
+    } else if (tag === 'li') {
+      pList.push(`<w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t>• </w:t></w:r>${runs}</w:p>`);
+    } else {
+      pList.push(`<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>${runs}</w:p>`);
+    }
+  }
+
+  if (pList.length === 0) {
+    return parsePlainTextToDocxXml(html);
+  }
+
+  return pList.join('\n    ');
+}
+
+export function parsePlainTextToDocxXml(text: string): string {
+  const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim());
+  return paragraphs
+    .map((p) => {
+      const clean = escapeHtml(p.trim());
+      return `<w:p><w:r><w:t xml:space="preserve">${clean}</w:t></w:r></w:p>`;
+    })
+    .join('\n    ');
 }
 
 /**

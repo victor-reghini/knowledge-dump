@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReferenceFile } from '../types';
 import { api } from '../api';
+import { TiptapEditor } from './TiptapEditor';
 import {
   ZoomIn,
   ZoomOut,
@@ -50,6 +51,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [docTitle, setDocTitle] = useState<string>(reference.title);
   const [rawText, setRawText] = useState<string>('');
   const [originalRawText, setOriginalRawText] = useState<string>('');
+  const [editorHtml, setEditorHtml] = useState<string>('');
+  const [originalEditorHtml, setOriginalEditorHtml] = useState<string>('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -71,7 +74,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const isDirty = rawText !== originalRawText;
+  const isDirty = isEditing ? editorHtml !== originalEditorHtml : rawText !== originalRawText;
 
   useEffect(() => {
     let isMounted = true;
@@ -87,18 +90,23 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           const txt = data.text || data.paragraphs.map((p: any) => p.text).join('\n\n');
           setRawText(txt);
           setOriginalRawText(txt);
+          const html = data.html || data.paragraphs.map((p: any) => p.html).join('');
+          setEditorHtml(html);
+          setOriginalEditorHtml(html);
         } else if (data.text) {
           setRawText(data.text);
           setOriginalRawText(data.text);
           const lines = data.text.split('\n\n').filter(Boolean);
-          setParagraphs(
-            lines.map((t: string, i: number) => ({
-              index: i + 1,
-              type: 'paragraph',
-              text: t,
-              html: `<p class="docx-paragraph">${t}</p>`
-            }))
-          );
+          const pList: DocxParagraph[] = lines.map((t: string, i: number) => ({
+            index: i + 1,
+            type: 'paragraph' as const,
+            text: t,
+            html: `<p class="docx-paragraph">${t}</p>`
+          }));
+          setParagraphs(pList);
+          const html = pList.map((p: DocxParagraph) => p.html).join('');
+          setEditorHtml(html);
+          setOriginalEditorHtml(html);
         }
       })
       .catch((err) => {
@@ -186,12 +194,17 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     setSaving(true);
     setSaveStatus(null);
     try {
-      await api.updateReferenceContent(reference.id, { text: rawText });
+      const contentToSave = isEditing ? (editorHtml || rawText) : rawText;
+      await api.updateReferenceContent(reference.id, { text: contentToSave });
+      setOriginalEditorHtml(editorHtml);
       setOriginalRawText(rawText);
       setSaveStatus('Alterações salvas com sucesso no arquivo Word!');
       const refreshed = await api.getReferenceContent(reference.id);
       if (refreshed.paragraphs && Array.isArray(refreshed.paragraphs)) {
         setParagraphs(refreshed.paragraphs);
+        const newHtml = refreshed.html || refreshed.paragraphs.map((p: any) => p.html).join('');
+        setEditorHtml(newHtml);
+        setOriginalEditorHtml(newHtml);
       }
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err: any) {
@@ -211,7 +224,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rawText]);
+  }, [rawText, editorHtml, isEditing]);
 
   // Filtered paragraphs if searching
   const filteredParagraphs = searchQuery.trim()
@@ -251,14 +264,14 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             <button
               className={`toolbar-btn ${!isEditing ? 'active' : ''}`}
               onClick={() => setIsEditing(false)}
-              title="Visualização Formatada"
+              title="Visualização Formatada (Leitura)"
             >
               <Eye size={15} />
             </button>
             <button
               className={`toolbar-btn ${isEditing ? 'active' : ''}`}
               onClick={() => setIsEditing(true)}
-              title="Editar Documento"
+              title="Editar Documento com TipTap (Todos os Comandos)"
             >
               <Edit3 size={15} />
             </button>
@@ -288,44 +301,48 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             </span>
           </button>
 
-          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+          {!isEditing && (
+            <>
+              <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
 
-          {/* Zoom controls */}
-          <button
-            className="toolbar-btn"
-            onClick={() => setZoom((prev) => Math.max(70, prev - 15))}
-            title="Diminuir Zoom"
-            disabled={zoom <= 70}
-          >
-            <ZoomOut size={15} />
-          </button>
-          <span style={{ fontSize: '0.8rem', minWidth: 40, textAlign: 'center' }}>
-            {zoom}%
-          </span>
-          <button
-            className="toolbar-btn"
-            onClick={() => setZoom((prev) => Math.min(160, prev + 15))}
-            title="Aumentar Zoom"
-            disabled={zoom >= 160}
-          >
-            <ZoomIn size={15} />
-          </button>
-          <button
-            className="toolbar-btn"
-            onClick={() => setZoom(100)}
-            title="Redefinir Zoom (100%)"
-          >
-            <RotateCcw size={14} />
-          </button>
+              {/* Zoom controls */}
+              <button
+                className="toolbar-btn"
+                onClick={() => setZoom((prev) => Math.max(70, prev - 15))}
+                title="Diminuir Zoom"
+                disabled={zoom <= 70}
+              >
+                <ZoomOut size={15} />
+              </button>
+              <span style={{ fontSize: '0.8rem', minWidth: 40, textAlign: 'center' }}>
+                {zoom}%
+              </span>
+              <button
+                className="toolbar-btn"
+                onClick={() => setZoom((prev) => Math.min(160, prev + 15))}
+                title="Aumentar Zoom"
+                disabled={zoom >= 160}
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                className="toolbar-btn"
+                onClick={() => setZoom(100)}
+                title="Redefinir Zoom (100%)"
+              >
+                <RotateCcw size={14} />
+              </button>
 
-          {/* Search Toggle */}
-          <button
-            className={`toolbar-btn ${isSearchOpen ? 'active' : ''}`}
-            onClick={() => setIsSearchOpen((prev) => !prev)}
-            title="Buscar no Documento"
-          >
-            <Search size={15} />
-          </button>
+              {/* Search Toggle */}
+              <button
+                className={`toolbar-btn ${isSearchOpen ? 'active' : ''}`}
+                onClick={() => setIsSearchOpen((prev) => !prev)}
+                title="Buscar no Documento"
+              >
+                <Search size={15} />
+              </button>
+            </>
+          )}
 
           {/* Close */}
           {onClose && (
@@ -356,7 +373,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       )}
 
       {/* Search Bar */}
-      {isSearchOpen && (
+      {isSearchOpen && !isEditing && (
         <div className="pdf-search-bar" style={{ display: 'flex', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
           <Search size={14} style={{ color: 'var(--text-muted)' }} />
           <input
@@ -386,7 +403,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       )}
 
       {/* Floating Citation Tooltip */}
-      {selectionBox && (
+      {selectionBox && !isEditing && (
         <div
           className="pdf-citation-tooltip"
           style={{
@@ -414,100 +431,69 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       )}
 
       {/* Document View Content Area */}
-      <div className="pdf-viewport" style={{ padding: '24px 32px', overflowY: 'auto', backgroundColor: 'var(--bg-tertiary)' }}>
-        {loading ? (
-          <div className="empty-state">
-            <p>Carregando e renderizando documento DOCX...</p>
-          </div>
-        ) : error ? (
-          <div className="empty-state" style={{ color: 'var(--accent-red)' }}>
-            <p>{error}</p>
-          </div>
-        ) : isEditing ? (
-          <div
-            style={{
-              maxWidth: 820,
-              margin: '0 auto',
-              backgroundColor: 'var(--bg-primary)',
-              borderRadius: 6,
-              border: '1px solid var(--border-color)',
-              boxShadow: '0 4px 18px rgba(0, 0, 0, 0.08)',
-              overflow: 'hidden'
+      {isEditing ? (
+        <div style={{ flex: 1, minHeight: 0, width: '100%', height: 'calc(100% - 48px)', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+          <TiptapEditor
+            content={editorHtml}
+            onChange={(newHtml) => {
+              setEditorHtml(newHtml);
+              setRawText(newHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
             }}
-          >
-            <div
-              style={{
-                padding: '8px 12px',
-                backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-color)',
-                fontSize: '0.76rem',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                justifyContent: 'space-between'
-              }}
-            >
-              <span>Edição direta de texto do documento Word (.docx)</span>
-              <span>{isDirty ? 'Modificado (Não salvo)' : 'Sem alterações'}</span>
+            noteTitle={docTitle}
+            onExportDocx={() => window.open(api.getReferenceFileUrl(reference.id), '_blank')}
+            onExportPdf={() => window.print()}
+          />
+        </div>
+      ) : (
+        <div className="pdf-viewport" style={{ padding: '24px 32px', overflowY: 'auto', backgroundColor: 'var(--bg-tertiary)' }}>
+          {loading ? (
+            <div className="empty-state">
+              <p>Carregando e renderizando documento DOCX...</p>
             </div>
-            <textarea
-              className="form-textarea"
+          ) : error ? (
+            <div className="empty-state" style={{ color: 'var(--accent-red)' }}>
+              <p>{error}</p>
+            </div>
+          ) : paragraphs.length === 0 ? (
+            <div className="empty-state">
+              <p>Nenhum conteúdo encontrado neste arquivo.</p>
+            </div>
+          ) : (
+            <div
+              className="docx-paper-container"
               style={{
-                width: '100%',
-                minHeight: 520,
-                padding: '20px',
-                fontFamily: 'inherit',
+                maxWidth: 780,
+                margin: '0 auto',
+                backgroundColor: 'var(--bg-primary)',
+                padding: '48px 56px',
+                borderRadius: 6,
+                boxShadow: '0 4px 18px rgba(0, 0, 0, 0.12)',
                 fontSize: `${zoom}%`,
                 lineHeight: 1.7,
-                border: 'none',
-                outline: 'none',
-                resize: 'vertical',
-                backgroundColor: 'var(--bg-primary)',
                 color: 'var(--text-primary)'
               }}
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Digite o conteúdo do documento Word..."
-            />
-          </div>
-        ) : paragraphs.length === 0 ? (
-          <div className="empty-state">
-            <p>Nenhum conteúdo encontrado neste arquivo.</p>
-          </div>
-        ) : (
-          <div
-            className="docx-paper-container"
-            style={{
-              maxWidth: 780,
-              margin: '0 auto',
-              backgroundColor: 'var(--bg-primary)',
-              padding: '48px 56px',
-              borderRadius: 6,
-              boxShadow: '0 4px 18px rgba(0, 0, 0, 0.12)',
-              fontSize: `${zoom}%`,
-              lineHeight: 1.7,
-              color: 'var(--text-primary)'
-            }}
-          >
-            {filteredParagraphs.map((p) => {
-              const isMatch = searchQuery && p.text.toLowerCase().includes(searchQuery.toLowerCase());
-              return (
-                <div
-                  key={p.index}
-                  data-p-index={p.index}
-                  className={`docx-item ${isMatch ? 'docx-search-match' : ''}`}
-                  style={{
-                    position: 'relative',
-                    marginBottom: p.type === 'heading' || p.type === 'title' ? 14 : 10,
-                    padding: '2px 4px',
-                    borderRadius: 4
-                  }}
-                  dangerouslySetInnerHTML={{ __html: p.html }}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
+            >
+              {filteredParagraphs.map((p) => {
+                const isMatch = searchQuery && p.text.toLowerCase().includes(searchQuery.toLowerCase());
+                return (
+                  <div
+                    key={p.index}
+                    data-p-index={p.index}
+                    className={`docx-item ${isMatch ? 'docx-search-match' : ''}`}
+                    style={{
+                      position: 'relative',
+                      marginBottom: p.type === 'heading' || p.type === 'title' ? 14 : 10,
+                      padding: '2px 4px',
+                      borderRadius: 4
+                    }}
+                    dangerouslySetInnerHTML={{ __html: p.html }}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

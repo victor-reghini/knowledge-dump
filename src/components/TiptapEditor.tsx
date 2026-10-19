@@ -35,7 +35,11 @@ import {
   Trash2,
   SeparatorHorizontal,
   BookOpen,
-  Scroll
+  Scroll,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify
 } from 'lucide-react';
 
 // Custom TipTap Extension for Google Docs / Word Page Break
@@ -127,12 +131,70 @@ const FontSize = Extension.create({
   },
 });
 
+// Custom TipTap Extension for Text Alignment
+const TextAlign = Extension.create({
+  name: 'textAlign',
+  addOptions() {
+    return {
+      types: ['heading', 'paragraph'],
+      alignments: ['left', 'center', 'right', 'justify'],
+      defaultAlignment: 'left',
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          textAlign: {
+            default: this.options.defaultAlignment,
+            parseHTML: (element) => element.style.textAlign || this.options.defaultAlignment,
+            renderHTML: (attributes) => {
+              if (!attributes.textAlign || attributes.textAlign === this.options.defaultAlignment) {
+                return {};
+              }
+              return { style: `text-align: ${attributes.textAlign}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setTextAlign:
+        (alignment: string) =>
+        ({ commands }: any) => {
+          if (!this.options.alignments.includes(alignment)) return false;
+          return this.options.types.every((type: string) =>
+            commands.updateAttributes(type, { textAlign: alignment })
+          );
+        },
+      unsetTextAlign:
+        () =>
+        ({ commands }: any) => {
+          return this.options.types.every((type: string) =>
+            commands.resetAttributes(type, 'textAlign')
+          );
+        },
+    } as any;
+  },
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Shift-l': () => (this.editor.commands as any).setTextAlign('left'),
+      'Mod-Shift-e': () => (this.editor.commands as any).setTextAlign('center'),
+      'Mod-Shift-r': () => (this.editor.commands as any).setTextAlign('right'),
+      'Mod-Shift-j': () => (this.editor.commands as any).setTextAlign('justify'),
+    };
+  },
+});
+
 interface TiptapEditorProps {
   content: string;
   onChange: (newContent: string) => void;
-  onInsertWikilink: () => void;
-  onInsertMath: () => void;
-  onInsertAnchor: () => void;
+  onInsertWikilink?: () => void;
+  onInsertMath?: () => void;
+  onInsertAnchor?: () => void;
   noteTitle?: string;
   noteId?: string;
   onExportDocx?: () => void;
@@ -198,7 +260,6 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   const [currentFontSize, setCurrentFontSize] = useState<number>(11);
   const [selectedFontFamily, setSelectedFontFamily] = useState<string>('Arial, sans-serif');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
-  const [showRuler] = useState<boolean>(true);
 
   // Modals & popovers
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -223,6 +284,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       TextStyle,
       FontSize,
       PageBreak,
+      TextAlign,
       Color,
       Highlight.configure({ multicolor: true }),
       Table.configure({
@@ -618,12 +680,61 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
 
         <div className="docs-tool-divider" />
 
+        {/* Text Alignment (Left, Center, Right, Justify) */}
+        <button
+          type="button"
+          onClick={() => (editor.commands as any).setTextAlign('left')}
+          className={`docs-tool-btn ${editor.isActive({ textAlign: 'left' }) || (!editor.isActive({ textAlign: 'center' }) && !editor.isActive({ textAlign: 'right' }) && !editor.isActive({ textAlign: 'justify' })) ? 'is-active' : ''}`}
+          title="Alinhar à Esquerda (Ctrl+Shift+L)"
+        >
+          <AlignLeft size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => (editor.commands as any).setTextAlign('center')}
+          className={`docs-tool-btn ${editor.isActive({ textAlign: 'center' }) ? 'is-active' : ''}`}
+          title="Centralizar (Ctrl+Shift+E)"
+        >
+          <AlignCenter size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => (editor.commands as any).setTextAlign('right')}
+          className={`docs-tool-btn ${editor.isActive({ textAlign: 'right' }) ? 'is-active' : ''}`}
+          title="Alinhar à Direita (Ctrl+Shift+R)"
+        >
+          <AlignRight size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => (editor.commands as any).setTextAlign('justify')}
+          className={`docs-tool-btn ${editor.isActive({ textAlign: 'justify' }) ? 'is-active' : ''}`}
+          title="Justificar (Ctrl+Shift+J)"
+        >
+          <AlignJustify size={14} />
+        </button>
+
+        <div className="docs-tool-divider" />
+
         {/* Link / Wikilink */}
         <button
           type="button"
-          onClick={onInsertWikilink}
+          onClick={() => {
+            if (onInsertWikilink) {
+              onInsertWikilink();
+            } else {
+              const url = window.prompt('Inserir link (URL ou nota):');
+              if (url) {
+                const text = editor.state.doc.textBetween(
+                  editor.state.selection.from,
+                  editor.state.selection.to
+                ) || url;
+                editor.chain().focus().insertContent(`<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`).run();
+              }
+            }
+          }}
           className="docs-tool-btn"
-          title="Inserir Wikilink [[Nota]]"
+          title="Inserir Link ou Wikilink"
         >
           <LinkIcon size={14} />
         </button>
@@ -780,41 +891,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
         </div>
       </div>
 
-      {/* 2. Google Docs Horizontal Measurement Ruler */}
-      {showRuler && (
-        <div className="docs-ruler-bar" title="Régua do Documento">
-          <div className="docs-ruler-scale">
-            <div className="docs-ruler-slider-left" />
-            {[...Array(18)].map((_, i) => {
-              const num = i + 1;
-              const leftPercent = (num / 18) * 100;
-              return (
-                <React.Fragment key={num}>
-                  <span
-                    className="docs-ruler-number"
-                    style={{ left: `${leftPercent}%` }}
-                  >
-                    {num}
-                  </span>
-                  <div
-                    className="docs-ruler-tick"
-                    style={{ left: `${leftPercent}%`, height: 8 }}
-                  />
-                  {num < 18 && (
-                    <div
-                      className="docs-ruler-tick"
-                      style={{ left: `${leftPercent + 100 / 36}%`, height: 4 }}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-            <div className="docs-ruler-slider-right" />
-          </div>
-        </div>
-      )}
-
-      {/* 3. Google Docs Workbench: Left Outline Drawer + White Paper Canvas */}
+      {/* 2. Google Docs Workbench: Left Outline Drawer + White Paper Canvas */}
       <div className="docs-workbench-container">
         {/* Left Drawer ("Guias no documento" & Headings Outline) */}
         <aside

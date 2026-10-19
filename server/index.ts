@@ -901,6 +901,7 @@ server.get('/api/references/:id/content', async (request, reply) => {
         id: ref.id,
         file_type: 'docx',
         ...docxData,
+        html: docxData.paragraphs.map((p) => p.html).join(''),
         title: docxData.title || ref.title
       };
     } catch (err: any) {

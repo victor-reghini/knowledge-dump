@@ -328,6 +328,9 @@ Para restaurar este acervo em uma nova instância do Knowledge Dump, coloque os 
   };
 }
 
+export const GOOGLE_DRIVE_BACKUP_FOLDER_NAME = 'Knowledge Dump Backups';
+export const GOOGLE_DRIVE_MAX_BACKUPS = 3;
+
 export interface MockDriveFile {
   fileId: string;
   name: string;
@@ -336,6 +339,7 @@ export interface MockDriveFile {
   buffer: Buffer;
   dataHash: string;
   createdTime: string;
+  parents?: string[];
 }
 
 export const mockGoogleDriveStore: MockDriveFile[] = [];
@@ -345,17 +349,136 @@ export function clearMockGoogleDriveStore(): void {
 }
 
 /**
- * Envia o pacote de backup diretamente para a conta do usuário no Google Drive via REST API v3
+ * Obtém ou cria a pasta "Knowledge Dump Backups" no Google Drive
+ */
+export async function getOrCreateBackupsFolder(accessToken: string): Promise<string> {
+  if (!accessToken || !accessToken.trim()) return '';
+
+  if (accessToken === 'mock-token' || accessToken === 'test-token' || process.env.NODE_ENV === 'test') {
+    return 'mock-folder-knowledge-dump-backups';
+  }
+
+  try {
+    // 1. Procura se a pasta já existe
+    const q = encodeURIComponent(`mimeType = 'application/vnd.google-apps.folder' and name = '${GOOGLE_DRIVE_BACKUP_FOLDER_NAME}' and trashed = false`);
+    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    if (searchRes.ok) {
+      const data = (await searchRes.json()) as any;
+      if (data.files && data.files.length > 0) {
+        return data.files[0].id;
+      }
+    }
+
+    // 2. Não existe, cria a pasta
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: GOOGLE_DRIVE_BACKUP_FOLDER_NAME,
+        mimeType: 'application/vnd.google-apps.folder',
+        description: 'Pasta de backups automáticos do Knowledge Dump'
+      })
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      console.warn(`[GoogleDrive] Falha ao criar pasta "${GOOGLE_DRIVE_BACKUP_FOLDER_NAME}": ${errText}`);
+      return '';
+    }
+
+    const created = (await createRes.json()) as any;
+    return created.id || '';
+  } catch (err) {
+    console.warn(`[GoogleDrive] Erro ao obter/criar pasta "${GOOGLE_DRIVE_BACKUP_FOLDER_NAME}":`, err);
+    return '';
+  }
+}
+
+/**
+ * Remove backups antigos no Google Drive para manter no máximo keepCount (padrão 3)
+ */
+export async function pruneOldGoogleDriveBackups(
+  accessToken: string,
+  keepCount: number = GOOGLE_DRIVE_MAX_BACKUPS
+): Promise<string[]> {
+  if (!accessToken || !accessToken.trim()) return [];
+
+  // Modo mock / ambiente de testes
+  if (accessToken === 'mock-token' || accessToken === 'test-token' || process.env.NODE_ENV === 'test') {
+    if (mockGoogleDriveStore.length <= keepCount) return [];
+    const removed = mockGoogleDriveStore.splice(keepCount);
+    return removed.map((f) => f.fileId);
+  }
+
+  try {
+    const folderId = await getOrCreateBackupsFolder(accessToken).catch(() => '');
+    const query = folderId
+      ? `'${folderId}' in parents and name contains 'knowledge-dump-backup' and trashed = false`
+      : "name contains 'knowledge-dump-backup' and trashed = false";
+    const q = encodeURIComponent(query);
+    const fields = encodeURIComponent('files(id,name,createdTime)');
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&pageSize=100&fields=${fields}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as any;
+    const files: Array<{ id: string; name: string }> = data.files || [];
+    if (files.length <= keepCount) return [];
+
+    const toDelete = files.slice(keepCount);
+    const deletedIds: string[] = [];
+    for (const file of toDelete) {
+      try {
+        const delRes = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (delRes.ok || delRes.status === 204 || delRes.status === 404) {
+          deletedIds.push(file.id);
+        }
+      } catch (delErr) {
+        console.warn(`[GoogleDrive] Falha ao excluir backup antigo ${file.id} (${file.name}):`, delErr);
+      }
+    }
+    return deletedIds;
+  } catch (err) {
+    console.warn('[GoogleDrive] Falha ao rotacionar backups antigos:', err);
+    return [];
+  }
+}
+
+/**
+ * Envia o pacote de backup diretamente para a pasta "Knowledge Dump Backups" no Google Drive via REST API v3
+ * e remove backups antigos para manter no máximo 3 arquivos
  */
 export async function uploadToGoogleDrive(
   zipBuffer: Buffer,
   filename: string,
   accessToken: string,
   dataHash?: string
-): Promise<{ fileId: string; name: string; webViewLink?: string; size: number; dataHash?: string }> {
+): Promise<{
+  fileId: string;
+  name: string;
+  webViewLink?: string;
+  size: number;
+  dataHash?: string;
+  folderId?: string;
+  folderName?: string;
+  deletedOldBackups?: string[];
+}> {
   if (!accessToken || !accessToken.trim()) {
     throw new Error('Access Token do Google Drive não informado');
   }
+
+  const folderId = await getOrCreateBackupsFolder(accessToken).catch(() => '');
 
   // Suporte a modo simulado/mock em ambiente de testes ou tokens de teste
   if (accessToken === 'mock-token' || accessToken === 'test-token' || process.env.NODE_ENV === 'test') {
@@ -368,15 +491,20 @@ export async function uploadToGoogleDrive(
       size: zipBuffer.length,
       buffer: zipBuffer,
       dataHash: dataHash || '',
-      createdTime: new Date().toISOString()
+      createdTime: new Date().toISOString(),
+      parents: folderId ? [folderId] : []
     };
     mockGoogleDriveStore.unshift(mockFile);
+    const deletedOldBackups = await pruneOldGoogleDriveBackups(accessToken, GOOGLE_DRIVE_MAX_BACKUPS);
     return {
       fileId,
       name: filename,
       webViewLink,
       size: zipBuffer.length,
-      dataHash: mockFile.dataHash
+      dataHash: mockFile.dataHash,
+      folderId,
+      folderName: GOOGLE_DRIVE_BACKUP_FOLDER_NAME,
+      deletedOldBackups
     };
   }
 
@@ -392,6 +520,9 @@ export async function uploadToGoogleDrive(
   if (dataHash) {
     metadata.appProperties = { kd_data_hash: dataHash };
   }
+  if (folderId) {
+    metadata.parents = [folderId];
+  }
 
   const multipartRequestBody = Buffer.concat([
     Buffer.from(
@@ -405,7 +536,7 @@ export async function uploadToGoogleDrive(
     Buffer.from(closeDelimiter)
   ]);
 
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,webViewLink,appProperties,description', {
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,webViewLink,appProperties,description,parents', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -421,17 +552,22 @@ export async function uploadToGoogleDrive(
   }
 
   const data = await res.json() as any;
+  const deletedOldBackups = await pruneOldGoogleDriveBackups(accessToken, GOOGLE_DRIVE_MAX_BACKUPS);
+
   return {
     fileId: data.id,
     name: data.name || filename,
     webViewLink: data.webViewLink,
     size: Number(data.size || zipBuffer.length),
-    dataHash: data.appProperties?.kd_data_hash || dataHash
+    dataHash: data.appProperties?.kd_data_hash || dataHash,
+    folderId,
+    folderName: GOOGLE_DRIVE_BACKUP_FOLDER_NAME,
+    deletedOldBackups
   };
 }
 
 /**
- * Consulta o backup mais recente existente no Google Drive
+ * Consulta o backup mais recente existente na pasta de backups do Google Drive
  */
 export async function getLatestGoogleDriveBackup(
   accessToken: string
@@ -451,7 +587,11 @@ export async function getLatestGoogleDriveBackup(
     };
   }
 
-  const q = encodeURIComponent("name contains 'knowledge-dump-backup' and trashed = false");
+  const folderId = await getOrCreateBackupsFolder(accessToken).catch(() => '');
+  const query = folderId
+    ? `'${folderId}' in parents and name contains 'knowledge-dump-backup' and trashed = false`
+    : "name contains 'knowledge-dump-backup' and trashed = false";
+  const q = encodeURIComponent(query);
   const fields = encodeURIComponent('files(id,name,size,webViewLink,createdTime,description,appProperties,md5Checksum)');
   const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&pageSize=1&fields=${fields}`, {
     headers: { Authorization: `Bearer ${accessToken}` }

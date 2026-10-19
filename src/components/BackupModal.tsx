@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, CloudUpload, HardDrive, CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Settings, LogOut } from 'lucide-react';
+import { X, Download, CloudUpload, HardDrive, CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Settings, LogOut, Folder } from 'lucide-react';
 import { api } from '../api';
 import { BackupStatus, BackupDriveUploadResult } from '../types';
 import { googleDriveSync, GoogleDriveSyncState } from '../utils/googleDriveSync';
@@ -279,6 +279,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose }) => 
                     Último backup: {new Date(syncState.lastBackupAt).toLocaleString('pt-BR')}
                   </div>
                 )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  <Folder size={13} style={{ color: '#eab308' }} />
+                  <span>Pasta no Google Drive: <strong>Knowledge Dump Backups</strong> (retenção: máx. 3 cópias)</span>
+                </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
                   <button

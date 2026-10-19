@@ -380,11 +380,17 @@ export interface BackupDriveUploadResult {
   action?: 'pulled' | 'merged_and_pushed' | 'pushed_initial' | 'in_sync' | string;
   merged?: boolean;
   hash?: string;
+  folderId?: string;
+  folderName?: string;
+  deletedOldBackups?: string[];
   file?: {
     fileId: string;
     name: string;
     webViewLink?: string;
     size: number;
+    folderId?: string;
+    folderName?: string;
+    deletedOldBackups?: string[];
   };
   manifest?: {
     knowledge_dump_version: string;

@@ -676,8 +676,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <button
                 type="button"
                 className="docs-menu-item"
-                onClick={() => setViewMode(viewMode === 'tiptap' ? 'markdown' : 'tiptap')}
-                title="Editar / Alternar Visual"
+                onClick={() => {
+                  if (note.file_type === 'docx') return;
+                  setViewMode(viewMode === 'tiptap' ? 'markdown' : 'tiptap');
+                }}
+                title={note.file_type === 'docx' ? 'Editor Word (.docx) - Modo Avançado TipTap ativo' : 'Editar / Alternar Visual'}
               >
                 Editar
               </button>
@@ -743,8 +746,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           <button
             type="button"
             className={`apple-quick-action-btn ${viewMode !== 'tiptap' ? 'active' : ''}`}
-            onClick={() => setViewMode((prev) => (prev === 'tiptap' ? 'markdown' : 'tiptap'))}
-            title="Formatação Aa (Visual / Markdown)"
+            onClick={() => {
+              if (note.file_type === 'docx') return;
+              setViewMode((prev) => (prev === 'tiptap' ? 'markdown' : 'tiptap'));
+            }}
+            title={note.file_type === 'docx' ? 'Nota Word (.docx) - TipTap Editor completo ativo' : 'Formatação Aa (Visual / Markdown)'}
           >
             <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e5a93c' }}>Aa</span>
           </button>

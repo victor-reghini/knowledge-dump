@@ -3782,65 +3782,7 @@ a:hover {
   font-weight: 500;
 }
 
-/* 5. Google Docs Ruler */
-.docs-ruler-bar {
-  display: flex;
-  align-items: center;
-  height: 20px;
-  background-color: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-  position: relative;
-  user-select: none;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.docs-ruler-scale {
-  display: flex;
-  width: 816px;
-  margin: 0 auto;
-  height: 100%;
-  position: relative;
-}
-
-.docs-ruler-number {
-  position: absolute;
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  top: 2px;
-  transform: translateX(-50%);
-}
-
-.docs-ruler-tick {
-  position: absolute;
-  bottom: 0;
-  width: 1px;
-  background-color: var(--text-muted);
-}
-
-.docs-ruler-slider-left {
-  position: absolute;
-  top: 0;
-  left: 20px;
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 7px solid #2563eb;
-}
-
-.docs-ruler-slider-right {
-  position: absolute;
-  top: 0;
-  right: 20px;
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 7px solid #2563eb;
-}
-
-/* 6. Google Docs Workbench & Outline Drawer */
+/* 5. Google Docs Workbench & Outline Drawer */
 .docs-workbench-container {
   display: flex;
   flex: 1;
